@@ -48,6 +48,7 @@ export class UI {
   // ---------- Diálogo ----------
   dialogue(lines, speaker = 'Holograma de Aldric') {
     return new Promise((resolve) => {
+      this.onDialogo?.();
       const box = $('dialogue'), txt = box.querySelector('.dlg-text');
       box.querySelector('.dlg-speaker').textContent = speaker;
       box.classList.remove('hidden');
@@ -119,6 +120,7 @@ export class UI {
         if (answered || performance.now() - openedAt < 250) return;
         answered = true;
         result = opts[j].ok;
+        this.onRespuesta?.(result);
         buttons.forEach((b, k) => {
           b.disabled = true;
           if (opts[k].ok) b.classList.add('correct');
@@ -206,6 +208,14 @@ export class UI {
   }
 
   hideScreen(id) { $(id).classList.add('hidden'); }
+
+  // fundido a negro para los cambios de zona
+  fundido(negro) {
+    $('fundido').classList.toggle('activo', negro);
+    return new Promise((r) => setTimeout(r, 650));
+  }
+
+  setZona(nombre) { document.querySelector('.floor-name').textContent = nombre; }
   showScreen(id) { $(id).classList.remove('hidden'); }
 
   // ---------- HUD ----------

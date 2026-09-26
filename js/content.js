@@ -8,27 +8,61 @@ export const PROLOGO = {
     'Era una tarde normal en el aula de informática. Hasta que todas las pantallas se volvieron **violetas** a la vez… y el suelo desapareció bajo vuestros pies.',
     'Despertasteis en **Umbravel**, un reino de piedra, niebla y lunas pálidas. Os había traído **Aldric**, un mago que intentaba abrir un portal entre mundos. El experimento salió mal.',
     'Durante dos días, Aldric os dio cobijo en su taller. Le fascinaba vuestro mundo: las contraseñas le parecían **sellos mágicos**, y las redes, hechizos que unen a la gente.',
-    'Esta mañana, el taller estaba vacío. Sobre la mesa, un cristal azul proyectó un holograma: «**Morvath** me ha capturado. Estoy en lo alto de su torre. El portal a vuestro mundo funcionará una sola vez… decidid bien».',
-    '¿Qué hacéis?',
-  ],
-  elecciones: [
-    { id: 'casa', texto: 'Cruzar el portal y volver a casa' },
-    { id: 'torre', texto: 'Subir a la torre y rescatar a Aldric' },
+    'La tercera mañana, Aldric no bajó a desayunar. Su bastón seguía junto a la puerta. Y sobre la mesa del taller, algo **brillaba**.',
   ],
   finalCasa: [
     'El portal os devuelve al aula. Todo parece normal. Pero cada noche soñáis con una torre negra… y con un mago al que **nadie fue a buscar**.',
   ],
 };
 
+// La casa de Aldric: primera zona jugable
+export const CASA = {
+  nombre: 'La casa de Aldric · El taller',
+  inicio: 'El taller está en silencio. Sobre la mesa, un **cristal azul** late como un corazón. (Acércate y pulsa **E**)',
+  mensaje: [
+    '¿Me oís? Bien… Si estáis viendo este holograma, es que **Morvath** me ha capturado. Anoche vinieron a por mí mientras dormíais.',
+    'Estoy en lo alto de su torre, al norte. Quiere algo que solo yo sé hacer… y no pienso dárselo por las buenas.',
+    'Escuchadme bien. El **portal** de mi experimento, el de la pared, todavía funciona. **Una sola vez.** Si lo cruzáis, volveréis a vuestra aula.',
+    'O podéis salir por esa **puerta** y seguir el camino hasta la torre. No os voy a obligar. Es vuestra decisión.',
+  ],
+  aceptar: [
+    'Habéis elegido venir a por mí. Gracias… de verdad.',
+    'Llevad el cristal con vosotros: así podré guiaros y enseñaros lo que necesitéis. Y tomad esta **varita**.',
+    'Es caprichosa: solo lanza un hechizo si le demuestras algo que hayas aprendido. Pulsa **F** para usarla. Si os perdéis, pulsad **H** y os daré una pista.',
+    'Seguid el camino hacia el norte. La torre no tiene pérdida. Al pie hay un **arco** que os llevará dentro.',
+  ],
+  pistas: {
+    cristal: 'El **cristal azul** está sobre la mesa de trabajo. Acercaos y pulsad **E**.',
+    decidir: 'Tenéis que decidir: el **portal** de la pared os devuelve a casa; la **puerta** os lleva hasta mí.',
+    salir: 'La **puerta** de la casa está al sur. Acercaos y pulsad **E**.',
+  },
+};
+
+// El camino hasta la torre
+export const EXTERIOR = {
+  nombre: 'Umbravel · El camino a la torre',
+  llegada: [
+    'El aire de Umbravel es frío por la noche. Seguid el **camino de tierra** hacia el norte: la torre de Morvath está al final.',
+  ],
+  comentarios: {
+    cementerio: ['Ese cementerio es más viejo que la torre. Morvath no siempre fue malvado… pero esa historia os la contaré en otro momento.'],
+    santuario: ['Un santuario de los antiguos guardianes. Alguien sigue encendiendo sus velas. Eso me da esperanza.'],
+    torre: ['Ahí está: la **torre de Morvath**. El arco brillante es un portal: os llevará directamente al primer piso.'],
+  },
+  pistas: {
+    camino: 'Seguid el **camino de tierra** hacia el norte hasta la torre. Las farolas marcan la ruta.',
+    arco: 'El **arco brillante** al pie de la torre es la entrada. Acercaos y pulsad **E**.',
+  },
+};
+
 export const PISO1 = {
   nombre: 'Piso I · La Cámara de los Sellos',
 
   intro: [
-    '¿Me oís? Bien… Si estáis viendo este holograma, es que habéis decidido venir a por mí. **Gracias.**',
-    'Estáis en la base de la torre de Morvath. Cada piso está cerrado por **sellos**. Para abrir la puerta del norte tendréis que romper **tres**.',
+    'Ya estamos dentro. Esta es la base de la torre de Morvath: **la Cámara de los Sellos**.',
+    'Cada piso está cerrado por **sellos**. Para abrir la puerta del norte tendréis que romper **tres**.',
     'Las defensas de Morvath se alimentan de conocimiento… de vuestro mundo, curiosamente. Yo os enseñaré lo que necesitáis. Vosotros tendréis que **demostrarlo**.',
-    'Tomad esta **varita**. Es caprichosa: solo lanza un hechizo si le demuestras algo que hayas aprendido. Pulsa **F** para usarla.',
-    'Explorad la sala. Acercaos a cada desafío y pulsad **E**. Yo iré con vosotros.',
+    'Acercaos a cada desafío y pulsad **E**. Yo iré con vosotros.',
   ],
 
   lecciones: {

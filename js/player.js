@@ -1,7 +1,6 @@
 // El protagonista: un alumno con sudadera y mochila (viene de nuestro mundo)
 // y la varita de Aldric. Movimiento relativo a la cámara, salto y colisiones.
 import * as THREE from 'three';
-import { ROOM } from './world.js';
 import { Animador, aplicarPaleta, ajustarAltura, ocultar } from './modelos.js';
 
 const RADIUS = 0.35;
@@ -74,6 +73,7 @@ export class Player {
     const wand = new THREE.Group();
     wand.position.set(0, -0.63, 0);
     this.arms[0].add(wand);
+    this.varitaGrupo = wand;
     const stick = m(new THREE.CylinderGeometry(0.018, 0.012, 0.5, 8), mat(0x3a2415, 0.6), wand, 0, 0, 0.22);
     stick.rotation.x = Math.PI / 2;
     const tipMat = new THREE.MeshBasicMaterial();
@@ -100,6 +100,8 @@ export class Player {
     punta.position.set(0, 0.72, 0);
     varita.add(punta);
 
+    varita.visible = this.varitaGrupo.visible;
+    this.varitaGrupo = varita;
     this.body.visible = false;
     this.group.add(modelo);
     this.modelo = modelo;
@@ -107,6 +109,8 @@ export class Player {
     this.anim = new Animador(modelo, gltf.animations);
     this.anim.bucle('Idle');
   }
+
+  mostrarVarita(v) { this.varitaGrupo.visible = v; }
 
   castAnim() {
     this.cast = 0.7;
@@ -119,7 +123,8 @@ export class Player {
 
   wandTip(v) { return this.tip.getWorldPosition(v); }
 
-  update(dt, input, camYaw, colliders, doorOpen, t) {
+  // zona: la zona actual (casa, exterior, torre) decide suelo, obstáculos y límites
+  update(dt, input, camYaw, zona, t) {
     const fx = -Math.sin(camYaw), fz = -Math.cos(camYaw);
     const rx = Math.cos(camYaw), rz = -Math.sin(camYaw);
     let mx = fx * input.z + rx * input.x;
@@ -132,24 +137,27 @@ export class Player {
     this.vel.z += (mz * top - this.vel.z) * k;
     if (len > 0) this.facing = lerpAngle(this.facing, Math.atan2(mx, mz), Math.min(1, dt * 12));
 
+    this.saltoAhora = false;
+    this.aterrizaje = false;
     if (input.jump && this.onGround) {
       this.vel.y = 5.8;
       this.onGround = false;
+      this.saltoAhora = true;
     }
     this.vel.y -= 16 * dt;
 
     const p = this.group.position;
     const prevZ = p.z;
     p.addScaledVector(this.vel, dt);
-    // tras la puerta hay una escalera: el suelo sube 1 m por cada metro
-    const suelo = ROOM.escalera !== null && p.z < ROOM.escalera ? Math.min(4, ROOM.escalera - p.z) : 0;
+    const suelo = zona.suelo(p);
     if (p.y <= suelo) {
+      if (!this.onGround && this.vel.y < -4) this.aterrizaje = true;
       p.y = suelo;
       this.vel.y = 0;
       this.onGround = true;
     }
 
-    for (const c of colliders) {
+    for (const c of zona.colliders) {
       const dx = p.x - c.x, dz = p.z - c.z;
       const d = Math.hypot(dx, dz), min = c.r + RADIUS;
       if (d < min && d > 1e-4) {
@@ -158,16 +166,7 @@ export class Player {
       }
     }
 
-    // paredes; la puerta del norte deja pasar solo cuando está abierta
-    const edge = ROOM.L - 0.6;
-    p.x = Math.max(-ROOM.W + 0.6, Math.min(ROOM.W - 0.6, p.x));
-    p.z = Math.min(ROOM.L - 0.6, p.z);
-    if (p.z < -edge) {
-      const hueco = p.z > -ROOM.L - 1 ? ROOM.puerta : 1.6; // el marco es estrecho; la escalera, más ancha
-      const inDoorway = Math.abs(p.x) < ROOM.puerta;
-      if (!doorOpen || (prevZ >= -edge && !inDoorway)) p.z = -edge;
-      else p.x = Math.max(-hueco, Math.min(hueco, p.x));
-    }
+    zona.limitar(p, prevZ);
 
     this.group.rotation.y = this.facing;
 

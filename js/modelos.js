@@ -28,6 +28,38 @@ export async function cargarPaleta(url) {
   return t;
 }
 
+// Carga un conjunto de piezas de escenario (una por archivo) y les pone la paleta oscura.
+export async function cargarPiezas(carpeta, nombres, paleta, ext = 'glb') {
+  const entradas = await Promise.all(nombres.map(async (n) => [n, (await cargarModelo(`${carpeta}/${n}.${ext}`)).scene]));
+  for (const [, pieza] of entradas) {
+    pieza.traverse((m) => {
+      if (!m.isMesh) return;
+      m.material = m.material.clone();
+      m.material.map = paleta;
+      m.material.roughness = 0.9;
+      m.material.metalness = 0;
+    });
+  }
+  return Object.fromEntries(entradas);
+}
+
+// Devuelve una función para colocar copias de las piezas dentro de un grupo.
+export function colocador(grupo, piezas) {
+  return (nombre, x, y, z, ry = 0, escala = 1, sombra = true) => {
+    const o = piezas[nombre].clone(true);
+    o.position.set(x, y, z);
+    o.rotation.y = ry;
+    o.scale.setScalar(escala);
+    o.traverse((m) => {
+      if (!m.isMesh) return;
+      m.castShadow = sombra;
+      m.receiveShadow = true;
+    });
+    grupo.add(o);
+    return o;
+  };
+}
+
 export function aplicarPaleta(root, paleta) {
   root.traverse((o) => {
     if (!o.isMesh) return;

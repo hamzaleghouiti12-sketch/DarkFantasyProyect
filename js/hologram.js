@@ -1,7 +1,6 @@
 // El holograma de Aldric: acompaña al jugador flotando a su lado.
 // Shader propio: borde luminoso (fresnel), líneas de escaneo y parpadeo.
 import * as THREE from 'three';
-import { ROOM } from './world.js';
 import { Animador, ajustarAltura, ocultar } from './modelos.js';
 
 // Admite mallas con esqueleto (skinning) para poder animar el modelo del mago.
@@ -128,7 +127,7 @@ export class Hologram {
 
   gesto() { this.anim?.unaVezSolo('Interact'); }
 
-  update(dt, t, player, camera, speaking) {
+  update(dt, t, player, camera, speaking, zona) {
     this.uniforms.uTime.value = t;
     // se desvanece si la cámara lo atraviesa, para no tapar la vista
     const camDist = camera.position.distanceTo(this.group.position);
@@ -143,12 +142,8 @@ export class Hologram {
     fx /= len;
     fz /= len;
     this.desired.set(player.pos.x + fz * 1.5 + fx * 0.9, 0, player.pos.z - fx * 1.5 + fz * 0.9);
-    this.desired.x = Math.max(-ROOM.W + 0.8, Math.min(ROOM.W - 0.8, this.desired.x));
-    this.desired.z = Math.min(ROOM.L - 0.8, this.desired.z);
-    // cerca de la puerta y en la escalera va detrás del jugador, sin atravesar muros
-    if (player.pos.z < -ROOM.L + 1.5) this.desired.set(player.pos.x * 0.4, 0, player.pos.z + 1.4);
-    const z = this.group.position.z;
-    this.group.position.y = ROOM.escalera !== null && z < ROOM.escalera ? Math.min(4, ROOM.escalera - z) : 0;
+    zona.guiaHolograma(this.desired, player.pos);
+    this.group.position.y = zona.suelo(this.group.position);
     const k = 1 - Math.exp(-dt * 2.5);
     this.group.position.x += (this.desired.x - this.group.position.x) * k;
     this.group.position.z += (this.desired.z - this.group.position.z) * k;

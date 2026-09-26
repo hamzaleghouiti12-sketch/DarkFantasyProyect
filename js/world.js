@@ -35,18 +35,6 @@ export function buildWorld(scene, fx, content) {
   world.estructura = estructura;
   world.techo = techo;
 
-  // ---------- Luz ambiente y luna ----------
-  add(new THREE.HemisphereLight(0x4a5a8a, 0x1c120e, 1.1));
-  const moon = new THREE.DirectionalLight(0x8fa6ff, 1.3);
-  moon.position.set(-14, 24, 8);
-  moon.castShadow = true;
-  moon.shadow.mapSize.set(2048, 2048);
-  Object.assign(moon.shadow.camera, { left: -22, right: 22, top: 22, bottom: -22, near: 1, far: 70 });
-  moon.shadow.bias = -0.0005;
-  moon.shadow.normalBias = 0.03;
-  add(moon);
-  add(moon.target);
-
   // ---------- Suelo, techo y paredes ----------
   const floorC = TX.stoneFloorCanvas();
   const floor = addE(new THREE.Mesh(
@@ -388,6 +376,41 @@ export function buildWorld(scene, fx, content) {
       d.light.intensity = e * 40;
       if (Math.random() < 0.6) fx.small.emit(tmp.set((Math.random() - 0.5) * 4.4, 0.1, -L), { count: 2, color: 0x8a8080, intensity: 0.6, speed: 0.8, up: 0.5, life: 1.5 });
     }
+  };
+
+  // ---------- La zona "piso1" (límites, suelo, cámara y guía del holograma) ----------
+  world.zona = {
+    id: 'piso1', grupo: scene, colliders: world.colliders,
+    musica: 'torre', pisada: 'piedra', camDist: 6.5,
+    niebla: { color: 0x07060b, densidad: 0.028 }, luz: { luna: 1.3, cielo: 1.1 },
+    suelo(p) {
+      // tras la puerta hay una escalera: el suelo sube 1 m por cada metro
+      return ROOM.escalera !== null && p.z < ROOM.escalera ? Math.min(4, ROOM.escalera - p.z) : 0;
+    },
+    limitar(p, prevZ) {
+      // paredes; la puerta del norte deja pasar solo cuando está abierta
+      const edge = ROOM.L - 0.6;
+      p.x = Math.max(-ROOM.W + 0.6, Math.min(ROOM.W - 0.6, p.x));
+      p.z = Math.min(ROOM.L - 0.6, p.z);
+      if (p.z < -edge) {
+        const hueco = p.z > -ROOM.L - 1 ? ROOM.puerta : 1.6; // el marco es estrecho; la escalera, más ancha
+        const enPuerta = Math.abs(p.x) < ROOM.puerta;
+        if (!world.door.opening || (prevZ >= -edge && !enPuerta)) p.z = -edge;
+        else p.x = Math.max(-hueco, Math.min(hueco, p.x));
+      }
+    },
+    limitarCamara(c, jugador) {
+      c.x = Math.max(-ROOM.W + 0.4, Math.min(ROOM.W - 0.4, c.x));
+      c.z = Math.min(ROOM.L - 0.4, c.z);
+      if (jugador.z >= -ROOM.L) c.z = Math.max(-ROOM.L + 0.4, c.z);
+      c.y = Math.max(0.5, Math.min(ROOM.H - 0.5, c.y));
+    },
+    guiaHolograma(d, jugador) {
+      d.x = Math.max(-ROOM.W + 0.8, Math.min(ROOM.W - 0.8, d.x));
+      d.z = Math.min(ROOM.L - 0.8, d.z);
+      // cerca de la puerta y en la escalera va detrás del jugador, sin atravesar muros
+      if (jugador.z < -ROOM.L + 1.5) d.set(jugador.x * 0.4, 0, jugador.z + 1.4);
+    },
   };
 
   return world;

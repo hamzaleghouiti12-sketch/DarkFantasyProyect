@@ -5,11 +5,14 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { Particles } from './particles.js';
 import { buildWorld, ROOM } from './world.js';
+import { crearCasa } from './casa.js';
+import { crearExterior } from './exterior.js';
 import { Player } from './player.js';
 import { Hologram } from './hologram.js';
 import { SpellSystem, SPELLS } from './spells.js';
 import { UI } from './ui.js';
-import { PROLOGO, PISO1, PREGUNTAS } from './content.js';
+import { Sonido } from './audio.js';
+import { PROLOGO, CASA, EXTERIOR, PISO1, PREGUNTAS } from './content.js';
 import { RUTAS, cargarModelo, cargarPaleta } from './modelos.js';
 import { cargarMazmorra, vestirMazmorra } from './mazmorra.js';
 
@@ -50,33 +53,61 @@ addEventListener('resize', () => {
   composer.setSize(innerWidth, innerHeight);
 });
 
-// ---------- Mundo ----------
+// ---------- Luz global: cielo y luna (la luna sigue al jugador para que haya sombras en todas partes) ----------
+const hemi = new THREE.HemisphereLight(0x4a5a8a, 0x1c120e, 1.1);
+scene.add(hemi);
+const moon = new THREE.DirectionalLight(0x8fa6ff, 1.3);
+moon.castShadow = true;
+moon.shadow.mapSize.set(2048, 2048);
+Object.assign(moon.shadow.camera, { left: -24, right: 24, top: 24, bottom: -24, near: 1, far: 80 });
+moon.shadow.bias = -0.0005;
+moon.shadow.normalBias = 0.03;
+scene.add(moon, moon.target);
+
+// ---------- Zonas: la casa de Aldric, el exterior y el Piso I de la torre ----------
 const fx = { small: new Particles(scene, 3000, 0.09), big: new Particles(scene, 1500, 0.3) };
-const world = buildWorld(scene, fx, PISO1);
+const grupoTorre = new THREE.Group();
+scene.add(grupoTorre);
+const world = buildWorld(grupoTorre, fx, PISO1);
+const casa = crearCasa(scene);
+const exterior = crearExterior(scene);
+world.zona.entrada = { pos: new THREE.Vector3(0, 0, 14), mirada: Math.PI, yaw: 0 };
+casa.nombre = CASA.nombre;
+exterior.nombre = EXTERIOR.nombre;
+world.zona.nombre = PISO1.nombre;
+const zonas = { casa, exterior, piso1: world.zona };
+
 const player = new Player(scene);
-player.pos.set(0, 0, 14);
 const aldric = new Hologram(scene);
-aldric.group.position.set(-1.4, 0, 13.5);
+aldric.group.visible = false; // aparece cuando se activa el cristal
 const spells = new SpellSystem(scene, fx);
 const ui = new UI();
+const sonido = new Sonido();
+ui.onRespuesta = (ok) => (ok ? sonido.acierto() : sonido.fallo());
+ui.onDialogo = () => sonido.holograma();
 
 // Modelos externos (KayKit, CC0). Si algo falla, se quedan los hechos por código.
-try {
-  const [prota, varita, mago, paletaPicaro, paletaMago] = await Promise.all([
-    cargarModelo(RUTAS.protagonista), cargarModelo(RUTAS.varita), cargarModelo(RUTAS.aldric),
-    cargarPaleta(RUTAS.paletaPicaro), cargarPaleta(RUTAS.paletaMago),
-  ]);
-  player.usarModelo(prota, varita, paletaPicaro, paletaMago);
-  aldric.usarModelo(mago);
-} catch (e) {
-  console.warn('No se pudieron cargar los modelos; uso los hechos por código.', e);
-}
-try {
-  const piezas = await cargarMazmorra(await cargarPaleta(RUTAS.paletaMazmorra));
-  vestirMazmorra(world, scene, piezas);
-} catch (e) {
-  console.warn('No se pudo cargar la mazmorra; uso la sala hecha por código.', e);
-}
+const intentar = async (que, fn) => {
+  try { await fn(); } catch (e) { console.warn(`No se pudo cargar ${que}; uso la versión hecha por código.`, e); }
+};
+const paletas = {};
+await intentar('las paletas', async () => {
+  const [picaro, mago, mazmorra, halloween, medieval] = await Promise.all(
+    [RUTAS.paletaPicaro, RUTAS.paletaMago, RUTAS.paletaMazmorra, 'assets/texturas/paleta_halloween_oscura.png', 'assets/texturas/paleta_medieval_oscura.png'].map(cargarPaleta),
+  );
+  Object.assign(paletas, { picaro, mago, mazmorra, halloween, medieval });
+});
+await Promise.all([
+  intentar('los personajes', async () => {
+    const [prota, varita, mago] = await Promise.all([cargarModelo(RUTAS.protagonista), cargarModelo(RUTAS.varita), cargarModelo(RUTAS.aldric)]);
+    player.usarModelo(prota, varita, paletas.picaro, paletas.mago);
+    aldric.usarModelo(mago);
+  }),
+  intentar('la mazmorra', async () => vestirMazmorra(world, grupoTorre, await cargarMazmorra(paletas.mazmorra))),
+  intentar('la casa', () => casa.vestir(paletas.mazmorra)),
+  intentar('el exterior', () => exterior.vestir(paletas.halloween, paletas.medieval)),
+]);
+player.mostrarVarita(false);
 
 // ---------- Estado ----------
 const state = {
@@ -86,9 +117,14 @@ const state = {
   saber: 0, aciertos: 0, fallos: 0, startedAt: 0,
   wandCooldown: 0, doorOpen: false, finished: false,
   recent: [], target: null, interact: null, phishingTriggered: false, shake: 0,
+  varita: false,
+  casa: { cristal: false, decidido: false, puerta: 0, abriendo: false },
+  comentados: new Set(),
+  pasos: 0,
 };
 const fraudTotal = PISO1.pergaminos.filter((p) => p.fraude).length;
 let fraudLeft = fraudTotal;
+let zona = exterior;
 
 let flowDepth = 0;
 let chain = Promise.resolve();
@@ -98,6 +134,7 @@ function runFlow(fn) {
   return chain;
 }
 const busy = () => flowDepth > 0 || ui.anyOpen();
+const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function addSaber(n) {
   state.saber += n;
@@ -108,14 +145,102 @@ function record(ok) {
 }
 
 function refreshObjectives() {
-  const s = state.seals;
-  const items = [
-    { text: 'Responde al cartel del guardián', done: s.cartel },
-    { text: 'Ofrece la contraseña correcta en el altar', done: s.altar },
-    { text: `Destruye los pergaminos de phishing (${fraudTotal - fraudLeft}/${fraudTotal})`, done: s.pergaminos },
-  ];
-  if (state.doorOpen) items.push({ text: 'Cruza la puerta del norte', done: false });
+  let items;
+  if (zona === casa) {
+    items = [{ text: 'Investiga el brillo sobre la mesa', done: state.casa.cristal }];
+    if (state.casa.cristal) items.push({ text: 'Decide: el portal (volver a casa) o la puerta (rescatar a Aldric)', done: state.casa.decidido });
+  } else if (zona === exterior) {
+    items = [
+      { text: 'Sigue el camino hasta la torre', done: state.comentados.has('torre') },
+      { text: 'Cruza el arco que hay al pie de la torre', done: false },
+    ];
+  } else {
+    const s = state.seals;
+    items = [
+      { text: 'Responde al cartel del guardián', done: s.cartel },
+      { text: 'Ofrece la contraseña correcta en el altar', done: s.altar },
+      { text: `Destruye los pergaminos de phishing (${fraudTotal - fraudLeft}/${fraudTotal})`, done: s.pergaminos },
+    ];
+    if (state.doorOpen) items.push({ text: 'Cruza la puerta del norte', done: false });
+  }
   ui.setObjectives(items);
+}
+
+// ---------- Cambiar de zona (con fundido a negro) ----------
+function aplicarZona(z) {
+  zona = z;
+  for (const o of Object.values(zonas)) o.grupo.visible = o === z;
+  scene.fog.color.setHex(z.niebla.color);
+  scene.fog.density = z.niebla.densidad;
+  scene.background.setHex(z.niebla.color);
+  camera.far = z.lejos ?? 120;
+  camera.updateProjectionMatrix();
+  moon.intensity = z.luz.luna;
+  hemi.intensity = z.luz.cielo;
+  cam.dist = z.camDist;
+  sonido.ambientar(z.musica);
+  ui.setZona(z.nombre);
+  refreshObjectives();
+}
+function colocarEn(z) {
+  player.pos.copy(z.entrada.pos);
+  player.vel.set(0, 0, 0);
+  player.facing = z.entrada.mirada;
+  cam.yaw = z.entrada.yaw;
+  cam.target.set(player.pos.x, player.pos.y + 1.5, player.pos.z);
+  aldric.group.position.set(player.pos.x - 1.4, 0, player.pos.z - 0.6);
+}
+async function irA(id) {
+  await ui.fundido(true);
+  aplicarZona(zonas[id]);
+  colocarEn(zonas[id]);
+  await esperar(250);
+  await ui.fundido(false);
+}
+
+// ---------- Casa de Aldric ----------
+async function activarCristal() {
+  state.casa.cristal = true;
+  casa.cristal.activo = true;
+  sonido.teletransporte();
+  fx.big.emit(casa.cristal.mesh.getWorldPosition(new THREE.Vector3()), { count: 60, color: 0x7fe0ff, intensity: 2, speed: 2.5, life: 1.2 });
+  aldric.group.visible = true;
+  aldric.group.position.copy(casa.cristal.pos).add(new THREE.Vector3(-1.6, 0, 1.4));
+  await esperar(600);
+  await ui.dialogue(CASA.mensaje);
+  refreshObjectives();
+  ui.toast('**Portal** (pared este) → volver a casa · **Puerta** (sur) → rescatar a Aldric', 'info', 6500);
+}
+
+async function elegirPortal() {
+  sonido.teletransporte();
+  await ui.story(PROLOGO.finalCasa, [{ id: 'otra', texto: 'Volver atrás y decidir otra vez' }]);
+  ui.hideScreen('screen-story');
+}
+
+async function elegirPuerta() {
+  state.casa.decidido = true;
+  refreshObjectives();
+  await ui.dialogue(CASA.aceptar);
+  state.varita = true;
+  player.mostrarVarita(true);
+  sonido.acierto();
+  ui.toast('Has conseguido la **varita** de Aldric (F)', 'learn', 4200);
+  state.casa.abriendo = true;
+  sonido.puerta();
+  await esperar(1300);
+  sonido.teletransporte();
+  await irA('exterior');
+  await ui.dialogue(EXTERIOR.llegada);
+}
+
+// ---------- Exterior ----------
+async function entrarTorre() {
+  sonido.teletransporte();
+  await irA('piso1');
+  state.startedAt = performance.now();
+  await ui.dialogue(PISO1.intro);
+  ui.toast('**G** grimorio · **H** pedir pista a Aldric', 'info', 5000);
 }
 
 // ---------- Enseñar ----------
@@ -133,6 +258,7 @@ const RUNE = { cartel: 0, altar: 1, pergaminos: 2 };
 async function breakSeal(key) {
   state.seals[key] = true;
   world.lightRune(RUNE[key]);
+  sonido.sello();
   addSaber(25);
   state.shake = 0.35;
   player.celebrar();
@@ -143,6 +269,7 @@ async function breakSeal(key) {
   if (n === 3) {
     await ui.dialogue(PISO1.sellosRotos);
     world.openDoor();
+    sonido.puerta();
     state.doorOpen = true;
     state.shake = 0.8;
     refreshObjectives();
@@ -170,6 +297,7 @@ async function examineAltar() {
 async function offerCrystal(c) {
   if (c.ok) {
     record(true);
+    sonido.acierto();
     c.done = true;
     world.flashCrystal(c, true);
     for (const other of world.crystals) other.label.visible = other === c;
@@ -177,6 +305,7 @@ async function offerCrystal(c) {
     await breakSeal('altar');
   } else {
     record(false);
+    sonido.cristalRoto();
     world.flashCrystal(c, false);
     state.shake = 0.4;
     player.golpe();
@@ -203,6 +332,7 @@ function hitScroll(s) {
   } else {
     state.fallos++;
     state.shake = 0.3;
+    sonido.fallo();
     fx.big.emit(s.group.position, { count: 35, color: 0xffd27a, intensity: 1.2, speed: 3, life: 0.8 });
     runFlow(() => ui.dialogue([`¡Alto! Ese mensaje era **legítimo**: ${s.data.motivo}`, 'Un escudo lo ha protegido. Leed bien antes de disparar.']));
   }
@@ -221,9 +351,13 @@ function pickQuestion() {
 
 const camFwd = new THREE.Vector3();
 async function useWand() {
+  if (!state.varita) {
+    ui.toast('Todavía no tienes ninguna varita.', 'bad', 2400);
+    return;
+  }
   if (state.wandCooldown > 0) return;
   if (state.learned.size === 0) {
-    await ui.dialogue(['La varita solo responde a quien ha aprendido algo. Acercaos primero a un desafío y os enseñaré.']);
+    await ui.dialogue(['La varita solo responde a quien ha aprendido algo. En la torre os enseñaré lo que necesitáis.']);
     return;
   }
   const target = state.target;
@@ -234,21 +368,26 @@ async function useWand() {
   player.castAnim();
   if (ok) {
     const spell = SPELLS[Math.floor(Math.random() * SPELLS.length)];
+    sonido.lanzar(spell.hex);
     ui.toast(`✦ ${spell.nombre}`, 'spell', 2200);
     camFwd.set(-Math.sin(cam.yaw), 0, -Math.cos(cam.yaw));
-    const fallback = player.pos.clone().addScaledVector(camFwd, 14).setY(1.4);
+    const fallback = player.pos.clone().addScaledVector(camFwd, 14).setY(player.pos.y + 1.4);
     const aim = target && target.alive ? () => target.group.position : null;
-    spells.cast(spell, tip, aim, fallback, () => { if (aim) hitScroll(target); });
+    spells.cast(spell, tip, aim, fallback, () => {
+      sonido.impacto();
+      if (aim) hitScroll(target);
+    });
     state.wandCooldown = 1.2;
   } else {
     spells.fizzle(tip);
+    sonido.chisporroteo();
     ui.toast('La varita chisporrotea y se apaga…', 'bad', 2400);
     state.wandCooldown = 2.5;
   }
 }
 
 function pickTarget() {
-  if (!state.learned.has('phishing')) return null;
+  if (zona !== world.zona || !state.learned.has('phishing')) return null;
   camFwd.set(-Math.sin(cam.yaw), 0, -Math.cos(cam.yaw));
   let best = null, bestScore = Infinity;
   for (const s of world.scrolls) {
@@ -267,28 +406,59 @@ function pickTarget() {
 
 // ---------- Pistas y grimorio ----------
 async function hint() {
-  const s = state.seals;
-  const key = !s.cartel ? 'cartel' : !s.altar ? 'altar' : !s.pergaminos ? 'pergaminos' : 'puerta';
-  await ui.dialogue([PISO1.pistas[key]]);
+  if (zona === casa) {
+    await ui.dialogue([!state.casa.cristal ? CASA.pistas.cristal : CASA.pistas.decidir]);
+  } else if (zona === exterior) {
+    const cerca = player.pos.distanceTo(exterior.lugares.arco) < 22;
+    await ui.dialogue([cerca ? EXTERIOR.pistas.arco : EXTERIOR.pistas.camino]);
+  } else {
+    const s = state.seals;
+    const key = !s.cartel ? 'cartel' : !s.altar ? 'altar' : !s.pergaminos ? 'pergaminos' : 'puerta';
+    await ui.dialogue([PISO1.pistas[key]]);
+  }
 }
 const grimEntries = () => [...state.learned].map((id) => PISO1.lecciones[id]);
 
-// ---------- Interactuables ----------
+// ---------- Interactuables (cada uno pertenece a una zona) ----------
 const interactables = [
   {
-    pos: world.sign.pos, r: 2.9,
+    zona: casa, pos: casa.cristal.pos, r: 2.8,
+    enabled: () => !state.casa.cristal,
+    prompt: () => '**E** · Tocar el cristal azul',
+    action: activarCristal,
+  },
+  {
+    zona: casa, pos: casa.portal.pos, r: 2.0,
+    enabled: () => state.casa.cristal && !state.casa.decidido,
+    prompt: () => '**E** · Cruzar el portal y **volver a casa**',
+    action: elegirPortal,
+  },
+  {
+    zona: casa, pos: casa.puerta.pos, r: 2.0,
+    enabled: () => state.casa.cristal && !state.casa.decidido,
+    prompt: () => '**E** · Salir por la puerta y **rescatar a Aldric**',
+    action: elegirPuerta,
+  },
+  {
+    zona: exterior, pos: exterior.portal.pos, r: 3.2,
+    enabled: () => true,
+    prompt: () => '**E** · Cruzar el arco y **entrar en la torre**',
+    action: entrarTorre,
+  },
+  {
+    zona: world.zona, pos: world.sign.pos, r: 2.9,
     enabled: () => !state.seals.cartel,
     prompt: () => '**E** · Leer el cartel del guardián',
     action: challengeCartel,
   },
   {
-    pos: world.altar.center, r: 4.4,
+    zona: world.zona, pos: world.altar.center, r: 4.4,
     enabled: () => !state.seals.altar && !state.learned.has('contrasenas'),
     prompt: () => '**E** · Examinar el altar de los cristales',
     action: examineAltar,
   },
   ...world.crystals.map((c) => ({
-    pos: c.pos, r: 1.6, crystal: c,
+    zona: world.zona, pos: c.pos, r: 1.6, crystal: c,
     enabled: () => !state.seals.altar && state.learned.has('contrasenas'),
     prompt: () => `**E** · Ofrecer «${c.texto}» al altar`,
     action: () => offerCrystal(c),
@@ -298,7 +468,7 @@ const interactables = [
 function nearestInteractable() {
   let best = null, bestD = Infinity;
   for (const it of interactables) {
-    if (!it.enabled()) continue;
+    if (it.zona !== zona || !it.enabled()) continue;
     const d = Math.hypot(player.pos.x - it.pos.x, player.pos.z - it.pos.z);
     if (d < it.r && d < bestD) { bestD = d; best = it; }
   }
@@ -309,8 +479,13 @@ function nearestInteractable() {
 const keys = {};
 addEventListener('keydown', (e) => {
   if (['Space', 'ArrowUp', 'ArrowDown', 'Tab'].includes(e.code)) e.preventDefault();
+  sonido.iniciar();
   if (ui.handleKey(e)) return;
   keys[e.code] = true;
+  if (e.code === 'KeyM' && !e.repeat) {
+    ui.toast(sonido.alternarSilencio() ? 'Sonido desactivado (M)' : 'Sonido activado (M)', 'info', 1800);
+    return;
+  }
   if (e.repeat || state.phase !== 'play' || busy()) return;
   if (e.code === 'KeyE' && state.interact) runFlow(state.interact.action);
   else if (e.code === 'KeyF') runFlow(useWand);
@@ -333,21 +508,18 @@ canvas.addEventListener('pointermove', (e) => {
 });
 canvas.addEventListener('wheel', (e) => { cam.dist = Math.max(3.2, Math.min(10, cam.dist + e.deltaY * 0.004)); }, { passive: true });
 
+const objetivoCam = new THREE.Vector3();
 function updateCamera(dt) {
-  cam.target.lerp(new THREE.Vector3(player.pos.x, player.pos.y + 1.5, player.pos.z), 1 - Math.exp(-dt * 10));
+  cam.target.lerp(objetivoCam.set(player.pos.x, player.pos.y + 1.5, player.pos.z), 1 - Math.exp(-dt * 10));
   const cp = Math.cos(cam.pitch);
   camera.position.set(
     cam.target.x + Math.sin(cam.yaw) * cp * cam.dist,
     cam.target.y + Math.sin(cam.pitch) * cam.dist,
     cam.target.z + Math.cos(cam.yaw) * cp * cam.dist,
   );
-  const inCorridor = player.pos.z < -ROOM.L;
-  camera.position.x = Math.max(-ROOM.W + 0.4, Math.min(ROOM.W - 0.4, camera.position.x));
-  camera.position.z = Math.min(ROOM.L - 0.4, camera.position.z);
-  if (!inCorridor) camera.position.z = Math.max(-ROOM.L + 0.4, camera.position.z);
-  camera.position.y = Math.max(0.5, Math.min(ROOM.H - 0.5, camera.position.y));
-  // la cámara no puede meterse dentro de las columnas
-  for (const c of world.colliders) {
+  zona.limitarCamara(camera.position, player.pos);
+  // la cámara no puede meterse dentro de columnas, árboles grandes ni la torre
+  for (const c of zona.colliders) {
     if (c.r < 1) continue;
     const dx = camera.position.x - c.x, dz = camera.position.z - c.z;
     const d = Math.hypot(dx, dz), min = c.r + 0.25;
@@ -366,27 +538,21 @@ function updateCamera(dt) {
 }
 
 // ---------- Flujo de partida ----------
-function beginPlay() {
-  state.phase = 'play';
-  state.startedAt = performance.now();
-  document.getElementById('hud').classList.remove('hidden');
-  refreshObjectives();
-  ui.setSaber(0);
-  runFlow(async () => {
-    await ui.dialogue(PISO1.intro);
-    ui.toast('**G** grimorio · **H** pedir pista a Aldric', 'info', 5000);
-  });
-}
-
 async function startStory() {
+  sonido.iniciar();
+  sonido.clic();
   ui.hideScreen('screen-title');
-  let choice = await ui.story(PROLOGO.paginas, PROLOGO.elecciones);
-  while (choice === 'casa') {
-    await ui.story(PROLOGO.finalCasa, [{ id: 'otra', texto: 'Volver atrás y decidir otra vez' }]);
-    choice = await ui.story([PROLOGO.paginas.at(-1)], PROLOGO.elecciones);
-  }
+  await ui.story(PROLOGO.paginas, [{ id: 'empezar', texto: 'Bajar al taller' }]);
+  await ui.fundido(true);
   ui.hideScreen('screen-story');
-  beginPlay();
+  aplicarZona(casa);
+  colocarEn(casa);
+  state.phase = 'play';
+  document.getElementById('hud').classList.remove('hidden');
+  ui.setSaber(0);
+  await esperar(300);
+  await ui.fundido(false);
+  ui.toast(CASA.inicio, 'info', 6500);
 }
 document.getElementById('btn-start').onclick = startStory;
 
@@ -394,6 +560,7 @@ function finish() {
   state.finished = true;
   state.phase = 'end';
   document.getElementById('hud').classList.add('hidden');
+  sonido.sello();
   const secs = Math.round((performance.now() - state.startedAt) / 1000);
   const total = state.aciertos + state.fallos;
   const precision = total ? Math.round((state.aciertos / total) * 100) : 100;
@@ -430,9 +597,37 @@ function tick(dt, t) {
     if (keys.KeyD || keys.ArrowRight) ix += 1;
     if (keys.KeyA || keys.ArrowLeft) ix -= 1;
   }
-  player.update(dt, { x: ix, z: iz, run: control && (keys.ShiftLeft || keys.ShiftRight), jump: control && keys.Space }, cam.yaw, world.colliders, state.doorOpen, t);
-  aldric.update(dt, t, player, camera, ui.open.dialogue);
-  world.update(dt, t, camera);
+  const correr = control && (keys.ShiftLeft || keys.ShiftRight);
+  player.update(dt, { x: ix, z: iz, run: correr, jump: control && keys.Space }, cam.yaw, zona, t);
+  if (aldric.group.visible) aldric.update(dt, t, player, camera, ui.open.dialogue, zona);
+
+  // sonido de pasos, salto y aterrizaje
+  const vel = Math.hypot(player.vel.x, player.vel.z);
+  if (player.onGround && vel > 0.6) {
+    state.pasos += vel * dt;
+    if (state.pasos > (correr ? 2.1 : 1.45)) {
+      state.pasos = 0;
+      sonido.paso(zona.pisada, correr);
+    }
+  }
+  if (player.saltoAhora) sonido.salto();
+  if (player.aterrizaje) sonido.aterrizaje();
+
+  // la luna sigue al jugador: sombras nítidas estés donde estés
+  moon.position.set(player.pos.x - 14, 24, player.pos.z + 8);
+  moon.target.position.copy(player.pos);
+
+  if (zona === casa) {
+    casa.update(dt, t, fx);
+    if (state.casa.abriendo && state.casa.puerta < 1) {
+      state.casa.puerta = Math.min(1, state.casa.puerta + dt * 0.9);
+      casa.abrirPuerta(state.casa.puerta * state.casa.puerta * (3 - 2 * state.casa.puerta));
+    }
+  } else if (zona === exterior) {
+    exterior.update(dt, t, fx, player.pos);
+  } else {
+    world.update(dt, t, camera);
+  }
   spells.update(dt);
   fx.small.update(dt);
   fx.big.update(dt);
@@ -441,7 +636,7 @@ function tick(dt, t) {
 
   if (state.phase === 'play') {
     if (state.wandCooldown > 0) state.wandCooldown = Math.max(0, state.wandCooldown - dt);
-    ui.setWand(state.wandCooldown > 0 ? 'Recargando…' : 'Lista (F)', state.wandCooldown === 0);
+    ui.setWand(!state.varita ? '—' : state.wandCooldown > 0 ? 'Recargando…' : 'Lista (F)', state.varita && state.wandCooldown === 0);
 
     const prev = state.target;
     state.target = pickTarget();
@@ -453,16 +648,33 @@ function tick(dt, t) {
     for (const c of world.crystals) c.focus = state.interact?.crystal === c;
     ui.prompt(state.interact ? state.interact.prompt() : null);
 
-    if (!state.phishingTriggered && !busy() && Math.hypot(player.pos.x - world.scrollZone.x, player.pos.z - world.scrollZone.z) < 7.2) {
-      state.phishingTriggered = true;
-      runFlow(() => teach('phishing'));
+    if (zona === exterior && !busy()) {
+      // Aldric comenta al pasar por algunos lugares
+      for (const [lugar, radio] of [['cementerio', 13], ['santuario', 9], ['arco', 20]]) {
+        const clave = lugar === 'arco' ? 'torre' : lugar;
+        if (state.comentados.has(clave) || player.pos.distanceTo(exterior.lugares[lugar]) > radio) continue;
+        state.comentados.add(clave);
+        refreshObjectives();
+        runFlow(() => ui.dialogue(EXTERIOR.comentarios[clave]));
+        break;
+      }
     }
-    if (state.doorOpen && !state.finished && player.pos.z < ROOM.salida) finish();
+    if (zona === world.zona) {
+      if (!state.phishingTriggered && !busy() && Math.hypot(player.pos.x - world.scrollZone.x, player.pos.z - world.scrollZone.z) < 7.2) {
+        state.phishingTriggered = true;
+        runFlow(() => teach('phishing'));
+      }
+      if (state.doorOpen && !state.finished && player.pos.z < ROOM.salida) finish();
+    }
   }
 
   updateCamera(dt);
 }
 
+// la portada muestra el camino con la torre al fondo
+aplicarZona(exterior);
+colocarEn(exterior);
+cam.pitch = 0.2;
 document.getElementById('loading').classList.add('hidden');
 document.getElementById('screen-title').classList.remove('hidden');
 requestAnimationFrame(frame);
@@ -471,7 +683,9 @@ requestAnimationFrame(frame);
 // aunque la pestaña esté en segundo plano
 let simT = 0;
 window.__torre = {
-  state, player, world, cam, ui, keys,
+  state, player, world, casa, exterior, cam, ui, keys, sonido, aldric,
+  get zona() { return zona; },
+  irA: (id) => { aplicarZona(zonas[id]); colocarEn(zonas[id]); },
   step(n = 1, dt = 1 / 60) {
     for (let i = 0; i < n; i++) tick(dt, (simT += dt));
     composer.render();

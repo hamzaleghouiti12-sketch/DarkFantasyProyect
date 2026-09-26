@@ -179,6 +179,8 @@ h1 {
 .end-stat .k { font-size: 13px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.08em; }
 
 #loading { background: #050407; }
+#fundido { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity 0.6s ease; z-index: 50; }
+#fundido.activo { opacity: 1; }
 .loader { font-family: Cinzel, serif; color: var(--gold); letter-spacing: 0.1em; animation: blink 1.4s ease-in-out infinite; }
 
 @media (max-height: 620px) {
