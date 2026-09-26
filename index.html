@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>La Torre de Morvath</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Alegreya+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div id="hud" class="hidden">
+    <div id="hud-objectives" class="panel">
+      <div class="floor-name">Piso I · La Cámara de los Sellos</div>
+      <ul id="objectives"></ul>
+    </div>
+    <div id="hud-stats" class="panel">
+      <div class="stat"><span class="stat-label">Saber</span><span id="saber" class="stat-value">0</span></div>
+      <div class="stat"><span class="stat-label">Varita</span><span id="wand-state" class="stat-value small">Lista (F)</span></div>
+    </div>
+    <div id="scroll-info" class="panel hidden">
+      <div class="scroll-kicker">Pergamino a la vista</div>
+      <div class="scroll-from"></div>
+      <div class="scroll-text"></div>
+      <div class="scroll-hint"><b>F</b> · usar la varita sobre este pergamino</div>
+    </div>
+    <div id="prompt" class="hidden"></div>
+    <div id="controls" class="panel">
+      <span><b>WASD</b> mover</span><span><b>Arrastrar</b> cámara</span><span><b>Shift</b> correr</span><span><b>Espacio</b> saltar</span>
+      <span><b>E</b> interactuar</span><span><b>F</b> varita</span><span><b>G</b> grimorio</span><span><b>H</b> pista</span>
+    </div>
+    <div id="toasts"></div>
+  </div>
+
+  <div id="dialogue" class="hidden">
+    <div class="dlg-head"><span class="dlg-speaker"></span><span class="dlg-count"></span></div>
+    <div class="dlg-text"></div>
+    <div class="dlg-next">E · Espacio · clic ▸</div>
+  </div>
+
+  <div id="quiz" class="modal hidden">
+    <div class="modal-card">
+      <div class="quiz-kicker"></div>
+      <h2 class="quiz-q"></h2>
+      <div class="quiz-opts"></div>
+      <div class="quiz-feedback hidden"></div>
+      <button class="btn quiz-continue hidden">Continuar (E)</button>
+    </div>
+  </div>
+
+  <div id="grimoire" class="modal hidden">
+    <div class="modal-card grim-card">
+      <h2>Grimorio</h2>
+      <p class="grim-sub">Lo que Aldric os ha enseñado</p>
+      <div class="grim-list"></div>
+      <button class="btn grim-close">Cerrar (G)</button>
+    </div>
+  </div>
+
+  <div id="screen-title" class="screen hidden">
+    <div class="title-wrap">
+      <div class="title-kicker">Tecnología y Digitalización · ESO</div>
+      <h1>La Torre<br>de Morvath</h1>
+      <p class="title-sub">Un mago atrapado. Una torre maldita. Y todo lo que sabéis del mundo digital como única arma.</p>
+      <button id="btn-start" class="btn big">Empezar</button>
+      <p class="title-note">Juega con teclado y ratón · Demo: Piso I</p>
+    </div>
+  </div>
+
+  <div id="screen-story" class="screen hidden">
+    <div class="story-card">
+      <p class="story-text"></p>
+      <div class="story-actions"></div>
+    </div>
+  </div>
+
+  <div id="screen-end" class="screen hidden">
+    <div class="title-wrap">
+      <div class="title-kicker">Piso I superado</div>
+      <h1 class="end-title">La Cámara<br>de los Sellos</h1>
+      <div class="end-stats"></div>
+      <p class="title-sub">La escalera sigue subiendo. <strong>Piso II · La Biblioteca de los Datos</strong>, próximamente.</p>
+      <button id="btn-replay" class="btn big">Volver a jugar</button>
+    </div>
+  </div>
+
+  <div id="loading" class="screen"><div class="loader">Invocando la torre…</div></div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
