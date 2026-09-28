@@ -90,6 +90,10 @@ export class Animador {
     for (const c of clips) this.acciones[c.name] = this.mixer.clipAction(c);
     this.base = null;
     this.unaVez = null;
+    this.nombreBase = null;
+    this.velocidadBase = 1;
+    this.nombreUnaVez = null;
+    this.contador = 0;
     this.mixer.addEventListener('finished', (e) => {
       if (e.action !== this.unaVez) return;
       this.unaVez = null;
@@ -103,6 +107,8 @@ export class Animador {
     const a = this.acciones[nombre];
     if (!a) return;
     a.timeScale = velocidad;
+    this.nombreBase = nombre;
+    this.velocidadBase = +velocidad.toFixed(2);
     if (this.base === a) return;
     if (!this.unaVez) {
       a.reset().fadeIn(0.2).play();
@@ -115,6 +121,8 @@ export class Animador {
   unaVezSolo(nombre, velocidad = 1) {
     const a = this.acciones[nombre];
     if (!a) return;
+    this.nombreUnaVez = nombre;
+    this.contador++;
     a.setLoop(THREE.LoopOnce, 1);
     a.clampWhenFinished = true;
     a.timeScale = velocidad;

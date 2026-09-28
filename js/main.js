@@ -15,6 +15,8 @@ import { Sonido } from './audio.js';
 import { PROLOGO, CASA, EXTERIOR, PISO1, PREGUNTAS } from './content.js';
 import { RUTAS, cargarModelo, cargarPaleta } from './modelos.js';
 import { cargarMazmorra, vestirMazmorra } from './mazmorra.js';
+import { Red, MAX_JUGADORES } from './red.js';
+import { Companero, TINTES } from './companeros.js';
 
 try {
   await Promise.all([
@@ -83,6 +85,8 @@ aldric.group.visible = false; // aparece cuando se activa el cristal
 const spells = new SpellSystem(scene, fx);
 const ui = new UI();
 const sonido = new Sonido();
+const red = new Red();
+const companeros = new Map(); // id → Companero
 ui.onRespuesta = (ok) => (ok ? sonido.acierto() : sonido.fallo());
 ui.onDialogo = () => sonido.holograma();
 
@@ -121,6 +125,9 @@ const state = {
   casa: { cristal: false, decidido: false, puerta: 0, abriendo: false },
   comentados: new Set(),
   pasos: 0,
+  hecho: new Set(),   // acciones compartidas ya aplicadas (evita repetirlas en equipo)
+  pedido: {},         // acciones que este jugador ya ha pedido y esperan respuesta
+  envio: 0,
 };
 const fraudTotal = PISO1.pergaminos.filter((p) => p.fraude).length;
 let fraudLeft = fraudTotal;
@@ -184,6 +191,7 @@ function aplicarZona(z) {
 }
 function colocarEn(z) {
   player.pos.copy(z.entrada.pos);
+  if (red.activa) player.pos.x += [0, -1.4, 1.4][red.miColor] ?? 0;
   player.vel.set(0, 0, 0);
   player.facing = z.entrada.mirada;
   cam.yaw = z.entrada.yaw;
@@ -278,13 +286,17 @@ async function breakSeal(key) {
 
 // ---------- Desafío 1: cartel ----------
 async function challengeCartel() {
-  if (!state.learned.has('2fa')) await teach('2fa');
+  if (!state.learned.has('2fa')) {
+    accion('leccion', { id: '2fa', luego: 'cartel' });
+    return;
+  }
+  await cartelPregunta();
+}
+async function cartelPregunta() {
   const ok = await ui.quiz(PISO1.cartel, 'El cartel del guardián');
   record(ok);
   if (ok) {
-    fx.big.emit(new THREE.Vector3(world.sign.pos.x, 2.4, world.sign.pos.z), { count: 60, color: 0x9fe6ff, intensity: 2, speed: 3, life: 1 });
-    world.sign.mark.visible = false;
-    await breakSeal('cartel');
+    accion('sello', { clave: 'cartel' });
   } else {
     await ui.dialogue(['No pasa nada, equivocarse también enseña. Recordad: **algo que sabes + algo que tienes**. Volved a leer el cartel cuando queráis.']);
   }
@@ -292,11 +304,14 @@ async function challengeCartel() {
 
 // ---------- Desafío 2: altar ----------
 async function examineAltar() {
-  await teach('contrasenas');
+  accion('leccion', { id: 'contrasenas' });
 }
 async function offerCrystal(c) {
+  accion('altar', { i: world.crystals.indexOf(c) });
+}
+async function efectoAltar(c, soyAutor) {
   if (c.ok) {
-    record(true);
+    if (soyAutor) record(true);
     sonido.acierto();
     c.done = true;
     world.flashCrystal(c, true);
@@ -304,7 +319,7 @@ async function offerCrystal(c) {
     await ui.dialogue([`¡Eso es! «${c.texto}»: ${c.porque}`]);
     await breakSeal('altar');
   } else {
-    record(false);
+    if (soyAutor) record(false);
     sonido.cristalRoto();
     world.flashCrystal(c, false);
     state.shake = 0.4;
@@ -314,8 +329,8 @@ async function offerCrystal(c) {
 }
 
 // ---------- Desafío 3: pergaminos (con la varita) ----------
-function hitScroll(s) {
-  if (!s.alive) return;
+function hitScroll(s, soyAutor) {
+  if (!s?.alive) return;
   if (s.data.fraude) {
     world.destroyScroll(s, true);
     fraudLeft--;
@@ -330,7 +345,7 @@ function hitScroll(s) {
       });
     }
   } else {
-    state.fallos++;
+    if (soyAutor) state.fallos++;
     state.shake = 0.3;
     sonido.fallo();
     fx.big.emit(s.group.position, { count: 35, color: 0xffd27a, intensity: 1.2, speed: 3, life: 0.8 });
@@ -367,15 +382,18 @@ async function useWand() {
   const tip = player.wandTip(new THREE.Vector3());
   player.castAnim();
   if (ok) {
-    const spell = SPELLS[Math.floor(Math.random() * SPELLS.length)];
+    const k = Math.floor(Math.random() * SPELLS.length);
+    const spell = SPELLS[k];
     sonido.lanzar(spell.hex);
     ui.toast(`✦ ${spell.nombre}`, 'spell', 2200);
     camFwd.set(-Math.sin(cam.yaw), 0, -Math.cos(cam.yaw));
     const fallback = player.pos.clone().addScaledVector(camFwd, 14).setY(player.pos.y + 1.4);
     const aim = target && target.alive ? () => target.group.position : null;
+    const idx = aim ? world.scrolls.indexOf(target) : null;
+    red.enviar({ t: 'hechizo', k, de: tip.toArray(), a: idx, d: fallback.toArray() });
     spells.cast(spell, tip, aim, fallback, () => {
       sonido.impacto();
-      if (aim) hitScroll(target);
+      if (aim) accion('pergamino', { i: idx });
     });
     state.wandCooldown = 1.2;
   } else {
@@ -404,6 +422,205 @@ function pickTarget() {
   return best;
 }
 
+// ---------- Acciones compartidas (solo o en equipo) ----------
+// Todo lo que cambia la partida de todos pasa por aquí. Jugando solo se aplica
+// al momento; en equipo lo valida el anfitrión y lo anuncia a todo el equipo.
+function claveAccion(tipo, d) {
+  if (tipo === 'leccion') return `leccion:${d.id}`;
+  if (tipo === 'sello') return `sello:${d.clave}`;
+  if (tipo === 'pergamino') return `pergamino:${d.i}`;
+  if (tipo === 'comentario') return `comentario:${d.clave}`;
+  if (tipo === 'altar') return world.crystals[d.i]?.ok ? 'altar' : null; // los cristales débiles se pueden probar varias veces
+  return tipo;
+}
+function valido(tipo, d) {
+  if (tipo === 'altar' && (state.hecho.has('altar') || !world.crystals[d.i])) return false;
+  if (tipo === 'pergamino' && !world.scrolls[d.i]?.alive) return false;
+  const k = claveAccion(tipo, d);
+  return !k || !state.hecho.has(k);
+}
+function accion(tipo, datos = {}) {
+  if (red.activa && !red.esHost) {
+    red.enviar({ t: 'acc', tipo, datos });
+    return;
+  }
+  if (!valido(tipo, datos)) return;
+  red.enviar({ t: 'ev', tipo, datos, autor: red.miId });
+  aplicarEvento(tipo, datos, true);
+}
+function aplicarEvento(tipo, d, soyAutor) {
+  const k = claveAccion(tipo, d);
+  if (k) state.hecho.add(k);
+  switch (tipo) {
+    case 'cristal': runFlow(activarCristal); break;
+    case 'salir': state.casa.decidido = true; runFlow(elegirPuerta); break;
+    case 'torre': runFlow(entrarTorre); break;
+    case 'leccion':
+      if (d.id === 'phishing') state.phishingTriggered = true;
+      runFlow(async () => {
+        await teach(d.id);
+        if (soyAutor && d.luego === 'cartel') await cartelPregunta();
+      });
+      break;
+    case 'sello':
+      runFlow(async () => {
+        if (d.clave === 'cartel') {
+          fx.big.emit(new THREE.Vector3(world.sign.pos.x, 2.4, world.sign.pos.z), { count: 60, color: 0x9fe6ff, intensity: 2, speed: 3, life: 1 });
+          world.sign.mark.visible = false;
+        }
+        await breakSeal(d.clave);
+      });
+      break;
+    case 'altar': runFlow(() => efectoAltar(world.crystals[d.i], soyAutor)); break;
+    case 'pergamino': hitScroll(world.scrolls[d.i], soyAutor); break;
+    case 'comentario':
+      state.comentados.add(d.clave);
+      refreshObjectives();
+      runFlow(() => ui.dialogue(EXTERIOR.comentarios[d.clave]));
+      break;
+    case 'fin': finish(); break;
+  }
+}
+
+// ---------- Red: mensajes, compañeros y sala ----------
+function verHechizo(m) {
+  const spell = SPELLS[m.k];
+  if (!spell) return;
+  const de = new THREE.Vector3().fromArray(m.de);
+  const aim = m.a !== null && world.scrolls[m.a] ? () => world.scrolls[m.a].group.position : null;
+  sonido.lanzar(spell.hex);
+  spells.cast(spell, de, aim, new THREE.Vector3().fromArray(m.d), () => sonido.impacto());
+}
+red.alMensaje = (msg, de) => {
+  if (msg.t === 'pos') companeros.get(msg.id)?.recibir(msg);
+  else if (msg.t === 'hechizo') verHechizo(msg);
+  else if (msg.t === 'acc' && red.esHost) {
+    if (!valido(msg.tipo, msg.datos)) return;
+    red.enviar({ t: 'ev', tipo: msg.tipo, datos: msg.datos, autor: de });
+    aplicarEvento(msg.tipo, msg.datos, false);
+  } else if (msg.t === 'ev' && !red.esHost) aplicarEvento(msg.tipo, msg.datos, msg.autor === red.miId);
+  else if (msg.t === 'empezar' && !red.esHost) empezarEquipo();
+};
+red.alCambiarSala = (jugadores) => {
+  for (const j of jugadores) {
+    if (j.id !== red.miId && !companeros.has(j.id)) companeros.set(j.id, new Companero(scene, player, j));
+  }
+  for (const [id, c] of companeros) {
+    if (!jugadores.some((j) => j.id === id)) { c.quitar(); companeros.delete(id); }
+  }
+  player.tenir(TINTES[red.miColor]);
+  pintarSala(jugadores);
+  const eq = $('equipo');
+  eq.classList.toggle('hidden', jugadores.length < 2);
+  eq.innerHTML = 'Equipo: ' + jugadores.map((j) => `<span class="punto c${j.color}"></span>${escaparHtml(j.nombre)}`).join(' · ');
+};
+red.alCaer = (id, quien) => {
+  if (id === 'anfitrion') {
+    for (const c of companeros.values()) c.quitar();
+    companeros.clear();
+    $('equipo').classList.add('hidden');
+    if (state.phase === 'play') ui.toast('Se ha perdido la conexión con el anfitrión. Sigues jugando en solitario.', 'bad', 6000);
+    else {
+      reiniciarSala();
+      mostrarErrorSala('Se ha perdido la conexión con el anfitrión.');
+    }
+    return;
+  }
+  if (quien && state.phase === 'play') ui.toast(`${quien.nombre} ha salido de la partida.`, 'bad', 4000);
+};
+
+function escaparHtml(s) {
+  return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+function $(id) { return document.getElementById(id); }
+function mostrarErrorSala(texto) { $('sala-error').textContent = texto || ''; }
+function nombreJugador() {
+  const n = $('sala-nombre').value.trim().slice(0, 16);
+  if (!n) { mostrarErrorSala('Escribe tu nombre para que el equipo te reconozca.'); return null; }
+  try { localStorage.setItem('torreMorvathNombre', n); } catch { /* sin almacenamiento local */ }
+  return n;
+}
+function pintarSala(jugadores) {
+  $('sala-lista').innerHTML = jugadores.map((j) => `<li><span class="punto c${j.color}"></span>${escaparHtml(j.nombre)}${j.id === red.miId ? ' <em>(tú)</em>' : ''}${j.color === 0 ? ' <em>· anfitrión</em>' : ''}</li>`).join('');
+  const n = jugadores.length;
+  if (red.esHost) {
+    $('sala-estado').textContent = n < 2
+      ? `Esperando compañeros… (${n}/${MAX_JUGADORES}). Hacen falta al menos 2 para empezar.`
+      : `¡Listos! (${n}/${MAX_JUGADORES}). Puedes empezar ya o esperar a un tercero.`;
+    $('btn-empezar-equipo').disabled = n < 2;
+    $('btn-empezar-equipo').classList.remove('hidden');
+  } else {
+    $('sala-estado').textContent = `Esperando a que el anfitrión empiece… (${n}/${MAX_JUGADORES})`;
+    $('btn-empezar-equipo').classList.add('hidden');
+  }
+}
+function mostrarEspera() {
+  $('sala-opciones').classList.add('hidden');
+  $('sala-nombre').parentElement.classList.add('hidden');
+  $('sala-espera').classList.remove('hidden');
+  $('sala-codigo-ver').textContent = red.codigo;
+  mostrarErrorSala('');
+}
+async function conBoton(boton, texto, fn) {
+  const antes = boton.textContent;
+  boton.disabled = true;
+  boton.textContent = texto;
+  try {
+    await fn();
+  } catch (e) {
+    mostrarErrorSala(e.message);
+    red.cerrar();
+  } finally {
+    boton.disabled = false;
+    boton.textContent = antes;
+  }
+}
+function empezarEquipo() {
+  ui.hideScreen('screen-sala');
+  startStory();
+}
+$('btn-equipo').onclick = () => {
+  sonido.iniciar();
+  sonido.clic();
+  try { $('sala-nombre').value = localStorage.getItem('torreMorvathNombre') || ''; } catch { /* sin almacenamiento local */ }
+  ui.hideScreen('screen-title');
+  ui.showScreen('screen-sala');
+};
+$('btn-crear').onclick = () => {
+  const nombre = nombreJugador();
+  if (nombre) conBoton($('btn-crear'), 'Creando…', async () => { await red.crearSala(nombre); mostrarEspera(); });
+};
+$('btn-unirse').onclick = () => {
+  const nombre = nombreJugador();
+  const codigo = $('sala-codigo').value.trim().toUpperCase();
+  if (!nombre) return;
+  if (codigo.length !== 4) { mostrarErrorSala('El código tiene 4 letras.'); return; }
+  conBoton($('btn-unirse'), 'Conectando…', async () => { await red.unirse(codigo, nombre); mostrarEspera(); });
+};
+$('btn-empezar-equipo').onclick = () => {
+  if (!red.esHost || red.jugadores.length < 2) return;
+  red.empezada = true;
+  red.enviar({ t: 'empezar' });
+  empezarEquipo();
+};
+function reiniciarSala() {
+  red.cerrar();
+  for (const c of companeros.values()) c.quitar();
+  companeros.clear();
+  red.esHost = false;
+  red.codigo = null;
+  red.jugadores = [];
+  $('sala-opciones').classList.remove('hidden');
+  $('sala-nombre').parentElement.classList.remove('hidden');
+  $('sala-espera').classList.add('hidden');
+  mostrarErrorSala('');
+}
+$('btn-sala-volver').onclick = () => {
+  reiniciarSala();
+  ui.hideScreen('screen-sala');
+  ui.showScreen('screen-title');
+};
+
 // ---------- Pistas y grimorio ----------
 async function hint() {
   if (zona === casa) {
@@ -425,7 +642,7 @@ const interactables = [
     zona: casa, pos: casa.cristal.pos, r: 2.8,
     enabled: () => !state.casa.cristal,
     prompt: () => '**E** · Tocar el cristal azul',
-    action: activarCristal,
+    action: () => accion('cristal'),
   },
   {
     zona: casa, pos: casa.portal.pos, r: 2.0,
@@ -437,13 +654,13 @@ const interactables = [
     zona: casa, pos: casa.puerta.pos, r: 2.0,
     enabled: () => state.casa.cristal && !state.casa.decidido,
     prompt: () => '**E** · Salir por la puerta y **rescatar a Aldric**',
-    action: elegirPuerta,
+    action: () => accion('salir'),
   },
   {
     zona: exterior, pos: exterior.portal.pos, r: 3.2,
     enabled: () => true,
     prompt: () => '**E** · Cruzar el arco y **entrar en la torre**',
-    action: entrarTorre,
+    action: () => accion('torre'),
   },
   {
     zona: world.zona, pos: world.sign.pos, r: 2.9,
@@ -478,6 +695,7 @@ function nearestInteractable() {
 // ---------- Entrada ----------
 const keys = {};
 addEventListener('keydown', (e) => {
+  if (e.target instanceof HTMLInputElement) return; // escribiendo en los campos de la sala
   if (['Space', 'ArrowUp', 'ArrowDown', 'Tab'].includes(e.code)) e.preventDefault();
   sonido.iniciar();
   if (ui.handleKey(e)) return;
@@ -554,7 +772,7 @@ async function startStory() {
   await ui.fundido(false);
   ui.toast(CASA.inicio, 'info', 6500);
 }
-document.getElementById('btn-start').onclick = startStory;
+document.getElementById('btn-solo').onclick = startStory;
 
 function finish() {
   state.finished = true;
@@ -631,6 +849,14 @@ function tick(dt, t) {
   spells.update(dt);
   fx.small.update(dt);
   fx.big.update(dt);
+  for (const c of companeros.values()) c.update(dt);
+  if (red.activa && state.phase === 'play') {
+    state.envio += dt;
+    if (state.envio > 1 / 12) {
+      state.envio = 0;
+      red.enviar({ t: 'pos', id: red.miId, zn: zona.id, ...player.estadoRed() });
+    }
+  }
 
   if (state.phase === 'title' || state.phase === 'story') cam.yaw += dt * 0.06;
 
@@ -652,19 +878,21 @@ function tick(dt, t) {
       // Aldric comenta al pasar por algunos lugares
       for (const [lugar, radio] of [['cementerio', 13], ['santuario', 9], ['arco', 20]]) {
         const clave = lugar === 'arco' ? 'torre' : lugar;
-        if (state.comentados.has(clave) || player.pos.distanceTo(exterior.lugares[lugar]) > radio) continue;
-        state.comentados.add(clave);
-        refreshObjectives();
-        runFlow(() => ui.dialogue(EXTERIOR.comentarios[clave]));
+        if (state.comentados.has(clave) || state.pedido[clave] || player.pos.distanceTo(exterior.lugares[lugar]) > radio) continue;
+        state.pedido[clave] = true;
+        accion('comentario', { clave });
         break;
       }
     }
     if (zona === world.zona) {
-      if (!state.phishingTriggered && !busy() && Math.hypot(player.pos.x - world.scrollZone.x, player.pos.z - world.scrollZone.z) < 7.2) {
-        state.phishingTriggered = true;
-        runFlow(() => teach('phishing'));
+      if (!state.phishingTriggered && !state.pedido.phishing && !busy() && Math.hypot(player.pos.x - world.scrollZone.x, player.pos.z - world.scrollZone.z) < 7.2) {
+        state.pedido.phishing = true;
+        accion('leccion', { id: 'phishing' });
       }
-      if (state.doorOpen && !state.finished && player.pos.z < ROOM.salida) finish();
+      if (state.doorOpen && !state.finished && !state.pedido.fin && player.pos.z < ROOM.salida) {
+        state.pedido.fin = true;
+        accion('fin');
+      }
     }
   }
 
@@ -683,7 +911,7 @@ requestAnimationFrame(frame);
 // aunque la pestaña esté en segundo plano
 let simT = 0;
 window.__torre = {
-  state, player, world, casa, exterior, cam, ui, keys, sonido, aldric,
+  state, player, world, casa, exterior, cam, ui, keys, sonido, aldric, red, companeros,
   get zona() { return zona; },
   irA: (id) => { aplicarZona(zonas[id]); colocarEn(zonas[id]); },
   step(n = 1, dt = 1 / 60) {

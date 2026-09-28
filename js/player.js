@@ -94,6 +94,7 @@ export class Player {
     const mano = modelo.getObjectByName('handslotr') || modelo.getObjectByName('handslot.r');
     if (!mano) throw new Error('El modelo no tiene punto de agarre en la mano derecha');
     const varita = varitaGltf.scene;
+    varita.name = 'varita';
     aplicarPaleta(varita, paletaVarita);
     mano.add(varita);
     const punta = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), this.tipMat);
@@ -106,11 +107,26 @@ export class Player {
     this.group.add(modelo);
     this.modelo = modelo;
     this.tip = punta;
+    this.clips = gltf.animations;
     this.anim = new Animador(modelo, gltf.animations);
     this.anim.bucle('Idle');
   }
 
   mostrarVarita(v) { this.varitaGrupo.visible = v; }
+
+  // color de la capa en el modo equipo (cada jugador un tono)
+  tenir(hex) {
+    this.modelo?.traverse((o) => { if (o.isMesh) o.material.color.set(hex); });
+  }
+
+  // lo que se envía por la red para que los demás vean a este jugador
+  estadoRed() {
+    const p = this.group.position, a = this.anim;
+    return {
+      x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2), f: +this.facing.toFixed(2),
+      a: a?.nombreBase, av: a?.velocidadBase, o: a?.nombreUnaVez, oc: a?.contador ?? 0, v: this.varitaGrupo.visible,
+    };
+  }
 
   castAnim() {
     this.cast = 0.7;

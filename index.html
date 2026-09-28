@@ -23,6 +23,7 @@
   <div id="hud" class="hidden">
     <div id="hud-objectives" class="panel">
       <div class="floor-name">Piso I · La Cámara de los Sellos</div>
+      <div id="equipo" class="equipo hidden"></div>
       <ul id="objectives"></ul>
     </div>
     <div id="hud-stats" class="panel">
@@ -73,8 +74,35 @@
       <div class="title-kicker">Tecnología y Digitalización · ESO</div>
       <h1>La Torre<br>de Morvath</h1>
       <p class="title-sub">Un mago atrapado. Una torre maldita. Y todo lo que sabéis del mundo digital como única arma.</p>
-      <button id="btn-start" class="btn big">Empezar</button>
-      <p class="title-note">Juega con teclado y ratón · Con sonido · Demo: la casa de Aldric, el camino y el Piso I</p>
+      <div class="title-actions">
+        <button id="btn-solo" class="btn big">Jugar solo</button>
+        <button id="btn-equipo" class="btn big secundario">Jugar en equipo</button>
+      </div>
+      <p class="title-note">Juega con teclado y ratón · Con sonido · En equipo: de 2 a 3 jugadores, cada uno en su ordenador</p>
+    </div>
+  </div>
+
+  <div id="screen-sala" class="screen hidden">
+    <div class="story-card sala-card">
+      <h2>Jugar en equipo</h2>
+      <p class="sala-sub">De 2 a 3 jugadores, cada uno desde su ordenador. Uno crea la sala y los demás entran con el código.</p>
+      <label class="sala-campo">Tu nombre<input id="sala-nombre" maxlength="16" autocomplete="off" placeholder="Por ejemplo: Ana"></label>
+      <div id="sala-opciones" class="sala-opciones">
+        <button id="btn-crear" class="btn">Crear sala</button>
+        <span class="sala-o">o</span>
+        <div class="sala-unirse">
+          <input id="sala-codigo" maxlength="4" autocomplete="off" placeholder="CÓDIGO">
+          <button id="btn-unirse" class="btn">Unirse</button>
+        </div>
+      </div>
+      <div id="sala-espera" class="hidden">
+        <div class="sala-codigo-caja">Código de la sala<b id="sala-codigo-ver"></b><span>Díselo a tus compañeros</span></div>
+        <ul id="sala-lista"></ul>
+        <p id="sala-estado"></p>
+        <button id="btn-empezar-equipo" class="btn big" disabled>Empezar</button>
+      </div>
+      <p id="sala-error" class="sala-error"></p>
+      <button id="btn-sala-volver" class="btn-enlace">← Volver</button>
     </div>
   </div>
 

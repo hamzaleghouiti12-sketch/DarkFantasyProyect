@@ -179,6 +179,35 @@ h1 {
 .end-stat .k { font-size: 13px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.08em; }
 
 #loading { background: #050407; }
+
+/* ---------- Modo equipo ---------- */
+.title-actions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+.btn.secundario { background: rgba(255, 255, 255, 0.05); color: var(--ink); border-color: var(--gold); box-shadow: none; }
+.btn.secundario:hover { background: rgba(212, 175, 106, 0.16); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; filter: none; }
+.btn-enlace { margin-top: 14px; background: none; border: none; color: var(--ink-dim); font: 500 15px 'Alegreya Sans', sans-serif; cursor: pointer; padding: 4px 0; }
+.btn-enlace:hover { color: var(--ink); }
+.sala-card h2 { font-family: Cinzel, serif; color: var(--gold); margin: 0; font-size: 28px; }
+.sala-sub { color: var(--ink-dim); margin: 6px 0 20px; line-height: 1.45; }
+.sala-campo { display: flex; flex-direction: column; gap: 6px; font-family: Cinzel, serif; font-size: 13px; letter-spacing: 0.08em; color: var(--ink-dim); margin-bottom: 18px; }
+.sala-card input { font: 500 18px 'Alegreya Sans', sans-serif; color: var(--ink); background: rgba(255, 255, 255, 0.05); border: 1px solid var(--gold-dim); border-radius: 8px; padding: 10px 12px; outline: none; }
+.sala-card input:focus { border-color: var(--gold); }
+#sala-codigo { width: 120px; text-transform: uppercase; letter-spacing: 0.25em; font-family: Cinzel, serif; text-align: center; }
+.sala-opciones { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.sala-o { color: var(--ink-dim); font-style: italic; }
+.sala-unirse { display: flex; gap: 8px; }
+.sala-codigo-caja { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 14px; border: 1px dashed var(--gold); border-radius: 10px; font-family: Cinzel, serif; font-size: 13px; color: var(--ink-dim); letter-spacing: 0.08em; }
+.sala-codigo-caja b { font-size: 40px; letter-spacing: 0.3em; color: var(--gold); padding-left: 0.3em; }
+.sala-codigo-caja span { font-family: 'Alegreya Sans', sans-serif; letter-spacing: 0; font-size: 14px; }
+#sala-lista { list-style: none; padding: 0; margin: 16px 0 8px; display: grid; gap: 6px; font-size: 18px; }
+#sala-lista em { color: var(--ink-dim); font-style: normal; font-size: 14px; }
+#sala-estado { color: var(--ink-dim); margin: 6px 0 14px; }
+.sala-error { color: var(--bad); min-height: 1.2em; margin: 10px 0 0; }
+.punto { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 7px; vertical-align: middle; }
+.punto.c0 { background: #d4af6a; }
+.punto.c1 { background: #8cb4ff; }
+.punto.c2 { background: #96e68c; }
+.equipo { font-size: 13px; color: var(--ink-dim); margin: -2px 0 8px; }
 #fundido { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity 0.6s ease; z-index: 50; }
 #fundido.activo { opacity: 1; }
 .loader { font-family: Cinzel, serif; color: var(--gold); letter-spacing: 0.1em; animation: blink 1.4s ease-in-out infinite; }
