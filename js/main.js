@@ -527,7 +527,10 @@ async function asegurarCompanero(j) {
 red.alCambiarSala = (jugadores) => {
   for (const j of jugadores) if (j.id !== red.miId) asegurarCompanero(j);
   for (const [id, c] of companeros) {
-    if (!jugadores.some((j) => j.id === id)) { c.quitar(); companeros.delete(id); }
+    if (jugadores.some((j) => j.id === id)) continue;
+    c.quitar();
+    companeros.delete(id);
+    if (state.phase === 'play') ui.toast(`${c.info.nombre} ha salido de la partida.`, 'bad', 4000);
   }
   player.tenir(TINTES[red.miColor]);
   pintarSala(jugadores);
@@ -548,7 +551,6 @@ red.alCaer = (id, quien) => {
     }
     return;
   }
-  if (quien && state.phase === 'play') ui.toast(`${quien.nombre} ha salido de la partida.`, 'bad', 4000);
 };
 
 function escaparHtml(s) {
@@ -569,7 +571,9 @@ function pintarSala(jugadores) {
   if (red.esHost) {
     $('sala-estado').textContent = n < 2
       ? `Esperando compañeros… (${n}/${MAX_JUGADORES}). Hacen falta al menos 2 para empezar.`
-      : `¡Listos! (${n}/${MAX_JUGADORES}). Puedes empezar ya o esperar a un tercero.`;
+      : n < MAX_JUGADORES
+        ? `¡Listos! (${n}/${MAX_JUGADORES}). Puedes empezar ya o esperar a un tercero.`
+        : `¡Sala completa! (${n}/${MAX_JUGADORES}). Ya podéis empezar.`;
     $('btn-empezar-equipo').disabled = n < 2;
     $('btn-empezar-equipo').classList.remove('hidden');
   } else {

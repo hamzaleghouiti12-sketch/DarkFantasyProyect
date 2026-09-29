@@ -18,6 +18,24 @@ const PREFIJO = 'torre-morvath-v1-';
 const LETRAS = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // sin I ni O para no confundir con 1 y 0
 export const MAX_JUGADORES = 3;
 
+// Latido: cada jugador manda una señal por segundo. Si alguien pasa este tiempo
+// sin dar señales, se le da por desconectado (cerrar el navegador de golpe no
+// siempre avisa por la conexión directa).
+const SIN_SENAL_MS = 10000;
+// El reloj va en un Web Worker porque los navegadores frenan los temporizadores
+// de las pestañas en segundo plano, y eso echaría a jugadores que siguen ahí.
+function crearReloj(cada) {
+  try {
+    const url = URL.createObjectURL(new Blob(['setInterval(() => postMessage(0), 1000);'], { type: 'text/javascript' }));
+    const worker = new Worker(url);
+    worker.onmessage = cada;
+    return () => worker.terminate();
+  } catch {
+    const id = setInterval(cada, 1000);
+    return () => clearInterval(id);
+  }
+}
+
 const limpiarPerfil = (p) => ({
   personaje: String(p.personaje || '').slice(0, 20),
   etiqueta: String(p.etiqueta || '').trim().slice(0, 32),
@@ -42,6 +60,39 @@ export class Red {
     this.alMensaje = () => {};
     this.alCambiarSala = () => {};
     this.alCaer = () => {};
+    this.ultimaSenal = new Map(); // id → hora del último mensaje recibido
+    this.pararReloj = null;
+  }
+
+  // se llama cada segundo mientras la sala está activa
+  latir() {
+    if (!this.activa) return;
+    const ahora = Date.now();
+    if (this.esHost) {
+      this.difundir({ t: 'latido' });
+      for (const [id, conn] of this.conexiones) {
+        const ice = conn.peerConnection?.iceConnectionState;
+        if (ahora - (this.ultimaSenal.get(id) ?? ahora) > SIN_SENAL_MS || ice === 'failed' || ice === 'closed') {
+          try { conn.close(); } catch { /* ya cerrada */ }
+          this.quitar(id);
+        }
+      }
+    } else if (this.host) {
+      if (this.host.open) this.host.send({ t: 'latido' });
+      const ice = this.host.peerConnection?.iceConnectionState;
+      if (ahora - (this.ultimaSenal.get('anfitrion') ?? ahora) > SIN_SENAL_MS || ice === 'failed' || ice === 'closed') this.caeAnfitrion();
+    }
+  }
+
+  empezarLatido() {
+    if (!this.pararReloj) this.pararReloj = crearReloj(() => this.latir());
+  }
+
+  caeAnfitrion() {
+    if (!this.activa) return;
+    this.activa = false;
+    try { this.host?.close(); } catch { /* ya cerrada */ }
+    this.alCaer('anfitrion');
   }
 
   async cargarPeer() {
@@ -69,6 +120,7 @@ export class Red {
     this.miId = this.peer.id;
     this.jugadores = [{ id: this.miId, nombre, color: 0, ...limpiarPerfil(perfil) }];
     this.peer.on('connection', (conn) => this.nuevaConexion(conn));
+    this.empezarLatido();
     // si se pierde el contacto con el servidor de presentación (p. ej. con la
     // pestaña en segundo plano) se vuelve a registrar, para que la sala se
     // pueda seguir encontrando con el mismo código
@@ -81,6 +133,8 @@ export class Red {
 
   nuevaConexion(conn) {
     conn.on('data', (msg) => {
+      this.ultimaSenal.set(conn.peer, Date.now());
+      if (msg.t === 'latido') return;
       if (msg.t === 'hola') {
         if (this.empezada || this.jugadores.length >= MAX_JUGADORES) {
           conn.send({ t: 'rechazo', motivo: this.empezada ? 'La partida ya ha empezado.' : `La sala está llena (máximo ${MAX_JUGADORES} jugadores).` });
@@ -113,6 +167,7 @@ export class Red {
   quitar(id) {
     if (!this.conexiones.has(id)) return;
     this.conexiones.delete(id);
+    this.ultimaSenal.delete(id);
     const quien = this.jugadores.find((j) => j.id === id);
     this.jugadores = this.jugadores.filter((j) => j.id !== id);
     this.difundirSala();
@@ -142,12 +197,15 @@ export class Red {
       });
       conn.on('open', () => conn.send({ t: 'hola', nombre, ...limpiarPerfil(perfil) }));
       conn.on('data', (msg) => {
+        this.ultimaSenal.set('anfitrion', Date.now());
+        if (msg.t === 'latido') return;
         if (msg.t === 'rechazo') { clearTimeout(reloj); mal(new Error(msg.motivo)); return; }
         if (msg.t === 'bienvenida') {
           clearTimeout(reloj);
           this.host = conn;
           this.activa = true;
           this.codigo = codigo.trim().toUpperCase();
+          this.empezarLatido();
           ok();
           return;
         }
@@ -158,11 +216,7 @@ export class Red {
         }
         this.alMensaje(msg, conn.peer);
       });
-      conn.on('close', () => {
-        if (!this.activa) return;
-        this.activa = false;
-        this.alCaer('anfitrion');
-      });
+      conn.on('close', () => this.caeAnfitrion());
     });
   }
 
@@ -187,6 +241,9 @@ export class Red {
 
   cerrar() {
     this.activa = false;
+    this.pararReloj?.();
+    this.pararReloj = null;
+    this.ultimaSenal.clear();
     this.peer?.destroy();
     this.peer = null;
   }
