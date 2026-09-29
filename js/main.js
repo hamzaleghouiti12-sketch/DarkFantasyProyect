@@ -16,7 +16,8 @@ import { PROLOGO, CASA, EXTERIOR, PISO1, PREGUNTAS } from './content.js';
 import { RUTAS, cargarModelo, cargarPaleta } from './modelos.js';
 import { cargarMazmorra, vestirMazmorra } from './mazmorra.js';
 import { Red, MAX_JUGADORES } from './red.js';
-import { Companero, TINTES } from './companeros.js';
+import { Companero, TINTES, crearEtiqueta, claveCompanero } from './companeros.js';
+import { PERSONAJES, personajeValido, cargarPersonaje, instanciar, configurarVarita } from './personajes.js';
 
 try {
   await Promise.all([
@@ -87,6 +88,10 @@ const ui = new UI();
 const sonido = new Sonido();
 const red = new Red();
 const companeros = new Map(); // id → Companero
+const leer = (k) => { try { return localStorage.getItem(k) || ''; } catch { return ''; } };
+const guardar = (k, v) => { try { localStorage.setItem(k, v); } catch { /* sin almacenamiento local */ } };
+// personaje y etiqueta de este jugador (se recuerdan para la próxima vez)
+const miPerfil = { personaje: personajeValido(leer('torreMorvathPersonaje')), etiqueta: leer('torreMorvathEtiqueta') };
 ui.onRespuesta = (ok) => (ok ? sonido.acierto() : sonido.fallo());
 ui.onDialogo = () => sonido.holograma();
 
@@ -103,8 +108,10 @@ await intentar('las paletas', async () => {
 });
 await Promise.all([
   intentar('los personajes', async () => {
-    const [prota, varita, mago] = await Promise.all([cargarModelo(RUTAS.protagonista), cargarModelo(RUTAS.varita), cargarModelo(RUTAS.aldric)]);
-    player.usarModelo(prota, varita, paletas.picaro, paletas.mago);
+    const [varita, mago] = await Promise.all([cargarModelo(RUTAS.varita), cargarModelo(RUTAS.aldric)]);
+    configurarVarita(varita, paletas.mago, player.tipMat);
+    const pl = await cargarPersonaje(miPerfil.personaje);
+    player.usarModelo(instanciar(pl), pl.clips);
     aldric.usarModelo(mago);
   }),
   intentar('la mazmorra', async () => vestirMazmorra(world, grupoTorre, await cargarMazmorra(paletas.mazmorra))),
@@ -501,15 +508,30 @@ red.alMensaje = (msg, de) => {
   } else if (msg.t === 'ev' && !red.esHost) aplicarEvento(msg.tipo, msg.datos, msg.autor === red.miId);
   else if (msg.t === 'empezar' && !red.esHost) empezarEquipo();
 };
+// crea (o rehace, si cambió de personaje o de etiqueta) el compañero de un jugador
+const creando = new Map();
+async function asegurarCompanero(j) {
+  const clave = claveCompanero(j);
+  if (companeros.get(j.id)?.clave === clave || creando.get(j.id) === clave) return;
+  creando.set(j.id, clave);
+  let plantilla = null;
+  try { plantilla = await cargarPersonaje(j.personaje); } catch { /* se verá como una silueta */ }
+  if (creando.get(j.id) !== clave) return; // volvió a cambiar mientras cargaba
+  creando.delete(j.id);
+  if (!red.jugadores.some((x) => x.id === j.id)) return;
+  const nuevo = new Companero(scene, j, plantilla);
+  const viejo = companeros.get(j.id);
+  if (viejo) { nuevo.heredar(viejo); viejo.quitar(); }
+  companeros.set(j.id, nuevo);
+}
 red.alCambiarSala = (jugadores) => {
-  for (const j of jugadores) {
-    if (j.id !== red.miId && !companeros.has(j.id)) companeros.set(j.id, new Companero(scene, player, j));
-  }
+  for (const j of jugadores) if (j.id !== red.miId) asegurarCompanero(j);
   for (const [id, c] of companeros) {
     if (!jugadores.some((j) => j.id === id)) { c.quitar(); companeros.delete(id); }
   }
   player.tenir(TINTES[red.miColor]);
   pintarSala(jugadores);
+  vistaPrevia();
   const eq = $('equipo');
   eq.classList.toggle('hidden', jugadores.length < 2);
   eq.innerHTML = 'Equipo: ' + jugadores.map((j) => `<span class="punto c${j.color}"></span>${escaparHtml(j.nombre)}`).join(' · ');
@@ -541,7 +563,8 @@ function nombreJugador() {
   return n;
 }
 function pintarSala(jugadores) {
-  $('sala-lista').innerHTML = jugadores.map((j) => `<li><span class="punto c${j.color}"></span>${escaparHtml(j.nombre)}${j.id === red.miId ? ' <em>(tú)</em>' : ''}${j.color === 0 ? ' <em>· anfitrión</em>' : ''}</li>`).join('');
+  const pj = (id) => PERSONAJES.find((p) => p.id === id)?.nombre ?? PERSONAJES[0].nombre;
+  $('sala-lista').innerHTML = jugadores.map((j) => `<li><span class="punto c${j.color}"></span>${escaparHtml(j.nombre)}${j.id === red.miId ? ' <em>(tú)</em>' : ''}${j.color === 0 ? ' <em>· anfitrión</em>' : ''}<span class="sala-pj">${escaparHtml(pj(j.personaje))}${j.etiqueta ? ` · «${escaparHtml(j.etiqueta)}»` : ''}</span></li>`).join('');
   const n = jugadores.length;
   if (red.esHost) {
     $('sala-estado').textContent = n < 2
@@ -577,25 +600,99 @@ async function conBoton(boton, texto, fn) {
 }
 function empezarEquipo() {
   ui.hideScreen('screen-sala');
+  salirDeLaSala();
   startStory();
 }
+
+// ---------- Elegir personaje y etiqueta (sala de equipo) ----------
+// En la sala la cámara se pone delante del personaje y la imagen se desplaza a
+// la izquierda para que se vea junto al panel.
+let encuadreSala = false;
+const focoSala = new THREE.PointLight(0xffd9a8, 0, 9, 1.5); // ilumina al personaje en la sala
+scene.add(focoSala);
+function encuadre() {
+  if (encuadreSala && innerWidth > 900) camera.setViewOffset(innerWidth, innerHeight, innerWidth * 0.22, 0, innerWidth, innerHeight);
+  else camera.clearViewOffset();
+}
+addEventListener('resize', encuadre);
+function entrarEnLaSala() {
+  state.phase = 'sala';
+  encuadreSala = true;
+  encuadre();
+  cam.yaw = player.facing;
+  cam.pitch = 0.08;
+  cam.dist = 3.6;
+  focoSala.position.set(player.pos.x - Math.sin(player.facing) * -2.2 + 1.2, 2.6, player.pos.z - Math.cos(player.facing) * -2.2);
+  focoSala.intensity = 14;
+  vistaPrevia();
+}
+function salirDeLaSala() {
+  encuadreSala = false;
+  encuadre();
+  focoSala.intensity = 0;
+  player.ponerEtiqueta(null);
+  cam.dist = zona.camDist;
+  cam.pitch = 0.2;
+}
+function vistaPrevia() {
+  const p = PERSONAJES.find((x) => x.id === miPerfil.personaje);
+  $('pj-nombre').textContent = p.nombre;
+  $('pj-desc').textContent = p.desc;
+  $('pj-num').textContent = `${PERSONAJES.indexOf(p) + 1} / ${PERSONAJES.length}`;
+  if (state.phase === 'sala') player.ponerEtiqueta(crearEtiqueta($('sala-nombre').value.trim() || 'Tú', miPerfil.etiqueta, red.activa ? red.miColor : 0));
+}
+let pedidoPj = 0;
+async function elegirPersonaje(paso) {
+  const i = PERSONAJES.findIndex((p) => p.id === miPerfil.personaje);
+  miPerfil.personaje = PERSONAJES[(i + paso + PERSONAJES.length) % PERSONAJES.length].id;
+  guardar('torreMorvathPersonaje', miPerfil.personaje);
+  sonido.clic();
+  vistaPrevia();
+  const pedido = ++pedidoPj;
+  try {
+    const pl = await cargarPersonaje(miPerfil.personaje);
+    if (pedido !== pedidoPj) return; // ya ha elegido otro
+    player.usarModelo(instanciar(pl), pl.clips);
+    player.tenir(TINTES[red.activa ? red.miColor : 0]);
+    player.celebrar();
+  } catch {
+    mostrarErrorSala('No se pudo cargar ese personaje.');
+  }
+  red.actualizarPerfil(miPerfil);
+}
+$('pj-ant').onclick = () => elegirPersonaje(-1);
+$('pj-sig').onclick = () => elegirPersonaje(1);
+let reloj = 0;
+$('sala-etiqueta').oninput = () => {
+  clearTimeout(reloj);
+  reloj = setTimeout(() => {
+    miPerfil.etiqueta = $('sala-etiqueta').value.trim().slice(0, 32);
+    guardar('torreMorvathEtiqueta', miPerfil.etiqueta);
+    vistaPrevia();
+    red.actualizarPerfil(miPerfil);
+  }, 350);
+};
+$('sala-nombre').oninput = () => vistaPrevia();
+
 $('btn-equipo').onclick = () => {
   sonido.iniciar();
   sonido.clic();
-  try { $('sala-nombre').value = localStorage.getItem('torreMorvathNombre') || ''; } catch { /* sin almacenamiento local */ }
+  $('sala-nombre').value = leer('torreMorvathNombre');
+  $('sala-etiqueta').value = miPerfil.etiqueta;
   ui.hideScreen('screen-title');
   ui.showScreen('screen-sala');
+  entrarEnLaSala();
 };
 $('btn-crear').onclick = () => {
   const nombre = nombreJugador();
-  if (nombre) conBoton($('btn-crear'), 'Creando…', async () => { await red.crearSala(nombre); mostrarEspera(); });
+  if (nombre) conBoton($('btn-crear'), 'Creando…', async () => { await red.crearSala(nombre, miPerfil); mostrarEspera(); });
 };
 $('btn-unirse').onclick = () => {
   const nombre = nombreJugador();
   const codigo = $('sala-codigo').value.trim().toUpperCase();
   if (!nombre) return;
   if (codigo.length !== 4) { mostrarErrorSala('El código tiene 4 letras.'); return; }
-  conBoton($('btn-unirse'), 'Conectando…', async () => { await red.unirse(codigo, nombre); mostrarEspera(); });
+  conBoton($('btn-unirse'), 'Conectando…', async () => { await red.unirse(codigo, nombre, miPerfil); mostrarEspera(); });
 };
 $('btn-empezar-equipo').onclick = () => {
   if (!red.esHost || red.jugadores.length < 2) return;
@@ -617,6 +714,8 @@ function reiniciarSala() {
 }
 $('btn-sala-volver').onclick = () => {
   reiniciarSala();
+  salirDeLaSala();
+  state.phase = 'title';
   ui.hideScreen('screen-sala');
   ui.showScreen('screen-title');
 };

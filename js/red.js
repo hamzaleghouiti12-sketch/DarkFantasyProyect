@@ -18,6 +18,11 @@ const PREFIJO = 'torre-morvath-v1-';
 const LETRAS = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // sin I ni O para no confundir con 1 y 0
 export const MAX_JUGADORES = 3;
 
+const limpiarPerfil = (p) => ({
+  personaje: String(p.personaje || '').slice(0, 20),
+  etiqueta: String(p.etiqueta || '').trim().slice(0, 32),
+});
+
 const codigoAleatorio = () => Array.from({ length: 4 }, () => LETRAS[Math.floor(Math.random() * LETRAS.length)]).join('');
 const abrir = (peer) => new Promise((ok, mal) => {
   peer.on('open', () => ok(peer));
@@ -47,7 +52,7 @@ export class Red {
   get miColor() { return this.jugadores.find((j) => j.id === this.miId)?.color ?? 0; }
 
   // ---------- Anfitrión ----------
-  async crearSala(nombre) {
+  async crearSala(nombre, perfil = {}) {
     const Peer = await this.cargarPeer();
     for (let intento = 0; intento < 5 && !this.peer; intento++) {
       const codigo = codigoAleatorio();
@@ -62,7 +67,7 @@ export class Red {
     this.esHost = true;
     this.activa = true;
     this.miId = this.peer.id;
-    this.jugadores = [{ id: this.miId, nombre, color: 0 }];
+    this.jugadores = [{ id: this.miId, nombre, color: 0, ...limpiarPerfil(perfil) }];
     this.peer.on('connection', (conn) => this.nuevaConexion(conn));
     // si se pierde el contacto con el servidor de presentación (p. ej. con la
     // pestaña en segundo plano) se vuelve a registrar, para que la sala se
@@ -83,13 +88,19 @@ export class Red {
           return;
         }
         const color = [0, 1, 2].find((c) => !this.jugadores.some((j) => j.color === c));
-        this.jugadores.push({ id: conn.peer, nombre: String(msg.nombre || 'Aprendiz').slice(0, 16), color });
+        this.jugadores.push({ id: conn.peer, nombre: String(msg.nombre || 'Aprendiz').slice(0, 16), color, ...limpiarPerfil(msg) });
         this.conexiones.set(conn.peer, conn);
         conn.send({ t: 'bienvenida', id: conn.peer });
         this.difundirSala();
         return;
       }
       if (!this.conexiones.has(conn.peer)) return;
+      if (msg.t === 'perfil') {
+        const j = this.jugadores.find((x) => x.id === conn.peer);
+        if (j) Object.assign(j, limpiarPerfil(msg));
+        this.difundirSala();
+        return;
+      }
       // posiciones y hechizos se reenvían tal cual al resto
       if (msg.t === 'pos' || msg.t === 'hechizo') this.difundir(msg, conn.peer);
       this.alMensaje(msg, conn.peer);
@@ -118,7 +129,7 @@ export class Red {
   }
 
   // ---------- Invitado ----------
-  async unirse(codigo, nombre) {
+  async unirse(codigo, nombre, perfil = {}) {
     const Peer = await this.cargarPeer();
     this.peer = await abrir(new Peer());
     this.miId = this.peer.id;
@@ -129,7 +140,7 @@ export class Red {
         clearTimeout(reloj);
         mal(new Error(e.type === 'peer-unavailable' ? 'No existe ninguna sala con ese código.' : `No se pudo conectar (${e.type}).`));
       });
-      conn.on('open', () => conn.send({ t: 'hola', nombre }));
+      conn.on('open', () => conn.send({ t: 'hola', nombre, ...limpiarPerfil(perfil) }));
       conn.on('data', (msg) => {
         if (msg.t === 'rechazo') { clearTimeout(reloj); mal(new Error(msg.motivo)); return; }
         if (msg.t === 'bienvenida') {
@@ -153,6 +164,18 @@ export class Red {
         this.alCaer('anfitrion');
       });
     });
+  }
+
+  // personaje y etiqueta elegidos en la sala (se pueden cambiar mientras se espera)
+  actualizarPerfil(perfil) {
+    if (!this.activa) return;
+    if (this.esHost) {
+      const yo = this.jugadores.find((j) => j.id === this.miId);
+      if (yo) Object.assign(yo, limpiarPerfil(perfil));
+      this.difundirSala();
+    } else if (this.host?.open) {
+      this.host.send({ t: 'perfil', ...limpiarPerfil(perfil) });
+    }
   }
 
   // del invitado al anfitrión; del anfitrión a todos

@@ -30,6 +30,8 @@ RAIZ = Path(__file__).resolve().parent.parent / 'assets' / 'texturas'
 TRABAJOS = [
     ('paleta_picaro.png', 'paleta_picaro_oscura.png', 'personaje'),
     ('paleta_mago.png', 'paleta_mago_oscura.png', 'personaje'),
+    ('paleta_caballero.png', 'paleta_caballero_oscura.png', 'personaje'),
+    ('paleta_barbaro.png', 'paleta_barbaro_oscura.png', 'personaje'),
     ('paleta_mazmorra.png', 'paleta_mazmorra_oscura.png', 'escenario'),
     ('paleta_halloween.png', 'paleta_halloween_oscura.png', 'exterior'),
     ('paleta_medieval.png', 'paleta_medieval_oscura.png', 'exterior'),

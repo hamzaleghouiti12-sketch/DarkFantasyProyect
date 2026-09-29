@@ -87,6 +87,14 @@
       <h2>Jugar en equipo</h2>
       <p class="sala-sub">De 2 a 3 jugadores, cada uno desde su ordenador. Uno crea la sala y los demás entran con el código.</p>
       <label class="sala-campo">Tu nombre<input id="sala-nombre" maxlength="16" autocomplete="off" placeholder="Por ejemplo: Ana"></label>
+      <div class="sala-campo">Tu personaje
+        <div class="selector-pj">
+          <button id="pj-ant" class="flecha" aria-label="Personaje anterior">◀</button>
+          <div class="pj-info"><b id="pj-nombre"></b><span id="pj-desc"></span><small id="pj-num"></small></div>
+          <button id="pj-sig" class="flecha" aria-label="Personaje siguiente">▶</button>
+        </div>
+      </div>
+      <label class="sala-campo">Tu etiqueta <em>(opcional, se verá sobre tu cabeza)</em><input id="sala-etiqueta" maxlength="32" autocomplete="off" placeholder="Por ejemplo: La guardiana del cortafuegos"></label>
       <div id="sala-opciones" class="sala-opciones">
         <button id="btn-crear" class="btn">Crear sala</button>
         <span class="sala-o">o</span>

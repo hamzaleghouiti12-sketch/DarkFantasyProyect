@@ -1,7 +1,7 @@
 // El protagonista: un alumno con sudadera y mochila (viene de nuestro mundo)
 // y la varita de Aldric. Movimiento relativo a la cámara, salto y colisiones.
 import * as THREE from 'three';
-import { Animador, aplicarPaleta, ajustarAltura, ocultar } from './modelos.js';
+import { Animador } from './modelos.js';
 
 const RADIUS = 0.35;
 
@@ -82,34 +82,27 @@ export class Player {
     this.tipMat = tipMat;
   }
 
-  // Sustituye el muñeco hecho por código por un modelo animado (KayKit).
-  // Si la carga falla, el juego sigue con el muñeco original.
-  usarModelo(gltf, varitaGltf, paleta, paletaVarita) {
-    const modelo = gltf.scene;
-    ocultar(modelo, ['Knife_Offhand', '1H_Crossbow', '2H_Crossbow', 'Knife', 'Throwable']);
-    aplicarPaleta(modelo, paleta);
-    ajustarAltura(modelo, 1.8);
-
-    // GLTFLoader quita los puntos de los nombres: "handslot.r" → "handslotr"
-    const mano = modelo.getObjectByName('handslotr') || modelo.getObjectByName('handslot.r');
-    if (!mano) throw new Error('El modelo no tiene punto de agarre en la mano derecha');
-    const varita = varitaGltf.scene;
-    varita.name = 'varita';
-    aplicarPaleta(varita, paletaVarita);
-    mano.add(varita);
-    const punta = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), this.tipMat);
-    punta.position.set(0, 0.72, 0);
-    varita.add(punta);
-
-    varita.visible = this.varitaGrupo.visible;
-    this.varitaGrupo = varita;
+  // Sustituye el muñeco hecho por código (o el personaje anterior) por un
+  // modelo animado de KayKit ya preparado (ver personajes.js).
+  usarModelo(modelo, clips) {
+    const conVarita = this.varitaGrupo.visible;
+    if (this.modelo) this.group.remove(this.modelo);
     this.body.visible = false;
     this.group.add(modelo);
     this.modelo = modelo;
-    this.tip = punta;
-    this.clips = gltf.animations;
-    this.anim = new Animador(modelo, gltf.animations);
+    this.clips = clips;
+    this.varitaGrupo = modelo.getObjectByName('varita') ?? this.varitaGrupo;
+    this.varitaGrupo.visible = conVarita;
+    this.tip = modelo.getObjectByName('punta') ?? this.tip;
+    this.anim = new Animador(modelo, clips);
     this.anim.bucle('Idle');
+  }
+
+  // nombre y etiqueta sobre la cabeza; se ve en la sala de equipo
+  ponerEtiqueta(sprites) {
+    if (this.etiqueta) this.group.remove(this.etiqueta);
+    this.etiqueta = sprites;
+    if (sprites) this.group.add(sprites);
   }
 
   mostrarVarita(v) { this.varitaGrupo.visible = v; }
