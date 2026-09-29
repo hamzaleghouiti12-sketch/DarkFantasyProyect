@@ -18,6 +18,7 @@ import { cargarMazmorra, vestirMazmorra } from './mazmorra.js';
 import { Red, MAX_JUGADORES } from './red.js';
 import { Companero, TINTES, crearEtiqueta, claveCompanero } from './companeros.js';
 import { PERSONAJES, personajeValido, cargarPersonaje, instanciar, configurarVarita } from './personajes.js';
+import { Chat } from './chat.js';
 
 try {
   await Promise.all([
@@ -88,6 +89,10 @@ const ui = new UI();
 const sonido = new Sonido();
 const red = new Red();
 const companeros = new Map(); // id → Companero
+const chat = new Chat((texto) => {
+  const m = red.enviarChat(texto);
+  if (m) chat.anadir(m);
+});
 const leer = (k) => { try { return localStorage.getItem(k) || ''; } catch { return ''; } };
 const guardar = (k, v) => { try { localStorage.setItem(k, v); } catch { /* sin almacenamiento local */ } };
 // personaje y etiqueta de este jugador (se recuerdan para la próxima vez)
@@ -500,6 +505,11 @@ function verHechizo(m) {
 }
 red.alMensaje = (msg, de) => {
   if (msg.t === 'pos') companeros.get(msg.id)?.recibir(msg);
+  else if (msg.t === 'chat') {
+    chat.anadir(msg);
+    companeros.get(msg.id)?.decir(msg.texto);
+    sonido.mensaje();
+  }
   else if (msg.t === 'hechizo') verHechizo(msg);
   else if (msg.t === 'acc' && red.esHost) {
     if (!valido(msg.tipo, msg.datos)) return;
@@ -524,7 +534,17 @@ async function asegurarCompanero(j) {
   if (viejo) { nuevo.heredar(viejo); viejo.quitar(); }
   companeros.set(j.id, nuevo);
 }
+let conocidos = new Set();
 red.alCambiarSala = (jugadores) => {
+  chat.mostrar(red.activa);
+  for (const j of jugadores) {
+    if (conocidos.size && !conocidos.has(j.id) && j.id !== red.miId) chat.anadir({ sistema: `${j.nombre} se ha unido.` });
+  }
+  for (const id of conocidos) {
+    const antes = companeros.get(id);
+    if (!jugadores.some((j) => j.id === id) && antes) chat.anadir({ sistema: `${antes.info.nombre} ha salido.` });
+  }
+  conocidos = new Set(jugadores.map((j) => j.id));
   for (const j of jugadores) if (j.id !== red.miId) asegurarCompanero(j);
   for (const [id, c] of companeros) {
     if (jugadores.some((j) => j.id === id)) continue;
@@ -541,6 +561,8 @@ red.alCambiarSala = (jugadores) => {
 };
 red.alCaer = (id, quien) => {
   if (id === 'anfitrion') {
+    chat.mostrar(false);
+    conocidos = new Set();
     for (const c of companeros.values()) c.quitar();
     companeros.clear();
     $('equipo').classList.add('hidden');
@@ -706,6 +728,9 @@ $('btn-empezar-equipo').onclick = () => {
 };
 function reiniciarSala() {
   red.cerrar();
+  chat.mostrar(false);
+  chat.vaciar();
+  conocidos = new Set();
   for (const c of companeros.values()) c.quitar();
   companeros.clear();
   red.esHost = false;
@@ -802,6 +827,12 @@ addEventListener('keydown', (e) => {
   if (['Space', 'ArrowUp', 'ArrowDown', 'Tab'].includes(e.code)) e.preventDefault();
   sonido.iniciar();
   if (ui.handleKey(e)) return;
+  if (red.activa && !e.repeat && (e.code === 'KeyT' || (e.code === 'Enter' && state.phase === 'play'))) {
+    e.preventDefault();
+    for (const k in keys) keys[k] = false; // que el personaje no siga andando solo
+    chat.abrir();
+    return;
+  }
   keys[e.code] = true;
   if (e.code === 'KeyM' && !e.repeat) {
     ui.toast(sonido.alternarSilencio() ? 'Sonido desactivado (M)' : 'Sonido activado (M)', 'info', 1800);

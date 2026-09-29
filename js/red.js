@@ -61,6 +61,7 @@ export class Red {
     this.alCambiarSala = () => {};
     this.alCaer = () => {};
     this.ultimaSenal = new Map(); // id → hora del último mensaje recibido
+    this.ultimoChat = new Map();
     this.pararReloj = null;
   }
 
@@ -155,6 +156,18 @@ export class Red {
         this.difundirSala();
         return;
       }
+      if (msg.t === 'chat') {
+        // el nombre y el color los pone el anfitrión: nadie puede hacerse pasar por otro
+        const j = this.jugadores.find((x) => x.id === conn.peer);
+        const texto = String(msg.texto || '').trim().slice(0, 140);
+        const ahora = Date.now();
+        if (!j || !texto || ahora - (this.ultimoChat.get(conn.peer) ?? 0) < 500) return;
+        this.ultimoChat.set(conn.peer, ahora);
+        const limpio = { t: 'chat', id: j.id, nombre: j.nombre, color: j.color, texto };
+        this.difundir(limpio, conn.peer);
+        this.alMensaje(limpio, conn.peer);
+        return;
+      }
       // posiciones y hechizos se reenvían tal cual al resto
       if (msg.t === 'pos' || msg.t === 'hechizo') this.difundir(msg, conn.peer);
       this.alMensaje(msg, conn.peer);
@@ -230,6 +243,16 @@ export class Red {
     } else if (this.host?.open) {
       this.host.send({ t: 'perfil', ...limpiarPerfil(perfil) });
     }
+  }
+
+  // mensaje de chat propio; devuelve lo que hay que mostrar en pantalla
+  enviarChat(texto) {
+    if (!this.activa) return null;
+    const yo = this.jugadores.find((j) => j.id === this.miId);
+    const m = { t: 'chat', id: this.miId, nombre: yo?.nombre ?? 'Yo', color: yo?.color ?? 0, texto: texto.slice(0, 140) };
+    if (this.esHost) this.difundir(m);
+    else if (this.host?.open) this.host.send({ t: 'chat', texto: m.texto });
+    return m;
   }
 
   // del invitado al anfitrión; del anfitrión a todos

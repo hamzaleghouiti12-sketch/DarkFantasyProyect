@@ -219,6 +219,11 @@ export class Sonido {
 
   clic() { this.tono(1500, 0.03, { vol: 0.03 }); }
 
+  mensaje() {
+    this.tono(880, 0.09, { vol: 0.045 });
+    this.tono(1320, 0.12, { vol: 0.04, cuando: 0.08 });
+  }
+
   // ---------- Música por ambientes ----------
   ambientar(nombre) {
     if (!this.ctx || this.ambiente === nombre) return;

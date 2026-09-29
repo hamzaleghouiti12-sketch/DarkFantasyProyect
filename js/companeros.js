@@ -91,5 +91,17 @@ export class Companero {
     this.group.visible = otro.group.visible;
   }
 
+  // bocadillo con el último mensaje de chat, unos segundos sobre la cabeza
+  decir(texto) {
+    if (this.bocadillo) this.group.remove(this.bocadillo);
+    const corto = texto.length > 42 ? `${texto.slice(0, 40)}…` : texto;
+    const b = makeLabel(corto, { height: 0.26, fontSize: 38, weight: 500, color: '#1a1208', bg: 'rgba(240,226,190,0.95)', border: 'rgba(120,90,40,0.9)' });
+    b.position.y = 2.72;
+    this.group.add(b);
+    this.bocadillo = b;
+    clearTimeout(this.relojBocadillo);
+    this.relojBocadillo = setTimeout(() => { this.group.remove(b); if (this.bocadillo === b) this.bocadillo = null; }, 6000);
+  }
+
   quitar() { this.escena.remove(this.group); }
 }
