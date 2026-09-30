@@ -19,6 +19,27 @@ import { Red, MAX_JUGADORES } from './red.js';
 import { Companero, TINTES, crearEtiqueta, claveCompanero } from './companeros.js';
 import { PERSONAJES, personajeValido, cargarPersonaje, instanciar, configurarVarita } from './personajes.js';
 import { Chat } from './chat.js';
+import PISO2 from './contenido/piso2.js';
+import PISO3 from './contenido/piso3.js';
+import PISO4 from './contenido/piso4.js';
+import PISO5 from './contenido/piso5.js';
+import PISO6 from './contenido/piso6.js';
+
+// Pisos que se construyen al llegar a ellos (carga diferida). El Piso I sigue en world.js.
+const PISOS = {
+  piso2: () => import('./pisos/piso2.js'),
+  piso3: () => import('./pisos/piso3.js'),
+  piso4: () => import('./pisos/piso4.js'),
+  piso5: () => import('./pisos/piso5.js'),
+  piso6: () => import('./pisos/piso6.js'),
+};
+const ORDEN_PISOS = ['piso1', ...Object.keys(PISOS)];
+const siguientePiso = (id) => ORDEN_PISOS[ORDEN_PISOS.indexOf(id) + 1] ?? null;
+const CONTENIDO_PISOS = [PISO2, PISO3, PISO4, PISO5, PISO6];
+// Todas las lecciones y todas las preguntas de la varita, de todos los pisos
+const LECCIONES = Object.assign({ ...PISO1.lecciones }, ...CONTENIDO_PISOS.map((c) => c.lecciones));
+const CRITERIO_PISO1 = { contrasenas: '3.1', '2fa': '3.3', phishing: '3.3' };
+const BANCO = [...PREGUNTAS.map((q) => ({ criterio: CRITERIO_PISO1[q.concepto], ...q })), ...CONTENIDO_PISOS.flatMap((c) => c.preguntas)];
 
 try {
   await Promise.all([
@@ -79,6 +100,7 @@ world.zona.entrada = { pos: new THREE.Vector3(0, 0, 14), mirada: Math.PI, yaw: 0
 casa.nombre = CASA.nombre;
 exterior.nombre = EXTERIOR.nombre;
 world.zona.nombre = PISO1.nombre;
+world.zona.salida = { abierta: () => state.doorOpen, get z() { return ROOM.salida; }, accion: ['subir', { piso: 'piso2' }] };
 const zonas = { casa, exterior, piso1: world.zona };
 
 const player = new Player(scene);
@@ -140,7 +162,12 @@ const state = {
   hecho: new Set(),   // acciones compartidas ya aplicadas (evita repetirlas en equipo)
   pedido: {},         // acciones que este jugador ya ha pedido y esperan respuesta
   envio: 0,
+  criterios: {},      // aciertos y fallos por criterio de evaluación (informe)
+  historial: {},      // por pregunta: fallos y aciertos seguidos (repaso espaciado)
 };
+const pisos = {};           // pisos ya construidos (id → piso)
+const construyendo = {};    // pisos que se están construyendo (id → promesa)
+const pendientes = [];      // acciones de un piso que llegaron antes de construirlo
 const fraudTotal = PISO1.pergaminos.filter((p) => p.fraude).length;
 let fraudLeft = fraudTotal;
 let zona = exterior;
@@ -159,8 +186,12 @@ function addSaber(n) {
   state.saber += n;
   ui.setSaber(state.saber);
 }
-function record(ok) {
+function record(ok, criterio) {
   if (ok) { state.aciertos++; addSaber(10); } else state.fallos++;
+  if (criterio) {
+    const c = (state.criterios[criterio] ??= { a: 0, f: 0 });
+    if (ok) c.a++; else c.f++;
+  }
 }
 
 function refreshObjectives() {
@@ -173,6 +204,8 @@ function refreshObjectives() {
       { text: 'Sigue el camino hasta la torre', done: state.comentados.has('torre') },
       { text: 'Cruza el arco que hay al pie de la torre', done: false },
     ];
+  } else if (zona.objetivos) {
+    items = zona.objetivos();
   } else {
     const s = state.seals;
     items = [
@@ -259,13 +292,65 @@ async function entrarTorre() {
   sonido.teletransporte();
   await irA('piso1');
   state.startedAt = performance.now();
+  asegurarPiso('piso2').catch(() => {}); // se va preparando mientras se juega el Piso I
   await ui.dialogue(PISO1.intro);
   ui.toast('**G** grimorio · **H** pedir pista a Aldric', 'info', 5000);
 }
 
+// ---------- Pisos con carga diferida ----------
+function contextoPiso() {
+  return {
+    escena: scene, fx, paletas, sonido, ui, red, companeros, estado: state,
+    jugador: player, camara: camera,
+    runFlow, esperar, accion, record, addSaber,
+    refrescarObjetivos: refreshObjectives,
+    celebrar: () => { player.celebrar(); aldric.celebrar(); },
+    golpe: () => player.golpe(),
+    sacudir: (s) => { state.shake = Math.max(state.shake, s); },
+  };
+}
+function asegurarPiso(id) {
+  if (pisos[id]) return Promise.resolve(pisos[id]);
+  construyendo[id] ??= (async () => {
+    const mod = await PISOS[id]();
+    const piso = await mod.construir(contextoPiso());
+    pisos[id] = piso;
+    zonas[id] = piso.zona;
+    piso.zona.grupo.visible = zona === piso.zona;
+    interactables.push(...piso.interactuables);
+    // acciones que llegaron mientras se construía
+    for (let i = 0; i < pendientes.length; i++) {
+      if (pendientes[i].d.piso !== id) continue;
+      const { d, soyAutor } = pendientes.splice(i--, 1)[0];
+      piso.aplicar(d, soyAutor);
+    }
+    return piso;
+  })();
+  construyendo[id].catch(() => { delete construyendo[id]; }); // si falla, se puede reintentar
+  return construyendo[id];
+}
+async function subirAPiso(id) {
+  guardarProgreso(zona.id);
+  ui.toast('Subiendo por la escalera…', 'info', 2400);
+  let piso;
+  try {
+    piso = await asegurarPiso(id);
+  } catch (e) {
+    console.error(e);
+    ui.toast('No se pudo cargar el siguiente piso. Revisa la conexión y recarga la página.', 'bad', 8000);
+    return;
+  }
+  sonido.teletransporte();
+  await irA(id);
+  const otro = siguientePiso(id);
+  if (otro && PISOS[otro]) asegurarPiso(otro).catch(() => {}); // se va preparando el siguiente
+  await piso.intro();
+  refreshObjectives();
+}
+
 // ---------- Enseñar ----------
 async function teach(id) {
-  const lesson = PISO1.lecciones[id];
+  const lesson = LECCIONES[id];
   await ui.dialogue(lesson.paginas);
   if (!state.learned.has(id)) {
     state.learned.add(id);
@@ -306,7 +391,7 @@ async function challengeCartel() {
 }
 async function cartelPregunta() {
   const ok = await ui.quiz(PISO1.cartel, 'El cartel del guardián');
-  record(ok);
+  record(ok, '3.3');
   if (ok) {
     accion('sello', { clave: 'cartel' });
   } else {
@@ -323,7 +408,7 @@ async function offerCrystal(c) {
 }
 async function efectoAltar(c, soyAutor) {
   if (c.ok) {
-    if (soyAutor) record(true);
+    if (soyAutor) record(true, '3.1');
     sonido.acierto();
     c.done = true;
     world.flashCrystal(c, true);
@@ -331,7 +416,7 @@ async function efectoAltar(c, soyAutor) {
     await ui.dialogue([`¡Eso es! «${c.texto}»: ${c.porque}`]);
     await breakSeal('altar');
   } else {
-    if (soyAutor) record(false);
+    if (soyAutor) record(false, '3.1');
     sonido.cristalRoto();
     world.flashCrystal(c, false);
     state.shake = 0.4;
@@ -366,14 +451,26 @@ function hitScroll(s, soyAutor) {
 }
 
 // ---------- La varita ----------
+// Pregunta al azar entre lo aprendido (de cualquier piso). Repaso espaciado sencillo:
+// las falladas salen el triple y las acertadas dos veces seguidas, la mitad.
 function pickQuestion() {
-  const pool = PREGUNTAS.filter((q) => state.learned.has(q.concepto));
+  const pool = BANCO.filter((q) => state.learned.has(q.concepto));
   const fresh = pool.filter((q) => !state.recent.includes(q.id));
   const list = fresh.length ? fresh : pool;
-  const q = list[Math.floor(Math.random() * list.length)];
+  const peso = (q) => {
+    const h = state.historial[q.id];
+    return !h ? 1 : h.fallada ? 3 : h.seguidas >= 2 ? 0.5 : 1;
+  };
+  let r = Math.random() * list.reduce((s, q) => s + peso(q), 0);
+  const q = list.find((x) => (r -= peso(x)) <= 0) ?? list[list.length - 1];
   state.recent.push(q.id);
   if (state.recent.length > Math.min(5, pool.length - 1)) state.recent.shift();
   return q;
+}
+function anotarPregunta(q, ok) {
+  const h = (state.historial[q.id] ??= { fallada: false, seguidas: 0 });
+  h.fallada = !ok;
+  h.seguidas = ok ? h.seguidas + 1 : 0;
 }
 
 const camFwd = new THREE.Vector3();
@@ -389,8 +486,9 @@ async function useWand() {
   }
   const target = state.target;
   const q = pickQuestion();
-  const ok = await ui.quiz(q, `La varita exige un concepto · ${PISO1.lecciones[q.concepto].titulo}`);
-  record(ok);
+  const ok = await ui.quiz(q, `La varita exige un concepto · ${LECCIONES[q.concepto].titulo}`);
+  record(ok, q.criterio);
+  anotarPregunta(q, ok);
   const tip = player.wandTip(new THREE.Vector3());
   player.castAnim();
   if (ok) {
@@ -443,9 +541,13 @@ function claveAccion(tipo, d) {
   if (tipo === 'pergamino') return `pergamino:${d.i}`;
   if (tipo === 'comentario') return `comentario:${d.clave}`;
   if (tipo === 'altar') return world.crystals[d.i]?.ok ? 'altar' : null; // los cristales débiles se pueden probar varias veces
+  if (tipo === 'mec') return pisos[d.piso]?.clave(d) ?? null;
+  if (tipo === 'subir') return `subir:${d.piso}`;
+  if (tipo === 'fin') return `fin:${d.piso ?? 'piso1'}`;
   return tipo;
 }
 function valido(tipo, d) {
+  if (tipo === 'mec' && !pisos[d.piso]?.validar(d)) return false;
   if (tipo === 'altar' && (state.hecho.has('altar') || !world.crystals[d.i])) return false;
   if (tipo === 'pergamino' && !world.scrolls[d.i]?.alive) return false;
   const k = claveAccion(tipo, d);
@@ -471,9 +573,16 @@ function aplicarEvento(tipo, d, soyAutor) {
       if (d.id === 'phishing') state.phishingTriggered = true;
       runFlow(async () => {
         await teach(d.id);
-        if (soyAutor && d.luego === 'cartel') await cartelPregunta();
+        if (soyAutor && !d.piso && d.luego === 'cartel') await cartelPregunta(); // el cartel del Piso I
+        if (d.piso) await pisos[d.piso]?.alAprender?.(d.id, soyAutor, d.luego);
       });
       break;
+    case 'mec':
+      // en equipo puede llegar antes de que este jugador haya terminado de construir el piso
+      if (pisos[d.piso]) pisos[d.piso].aplicar(d, soyAutor);
+      else pendientes.push({ d, soyAutor });
+      break;
+    case 'subir': runFlow(() => subirAPiso(d.piso)); break;
     case 'sello':
       runFlow(async () => {
         if (d.clave === 'cartel') {
@@ -550,6 +659,7 @@ red.alCambiarSala = (jugadores) => {
     if (jugadores.some((j) => j.id === id)) continue;
     c.quitar();
     companeros.delete(id);
+    for (const piso of Object.values(pisos)) piso.jugadorFuera?.(id);
     if (state.phase === 'play') ui.toast(`${c.info.nombre} ha salido de la partida.`, 'bad', 4000);
   }
   player.tenir(TINTES[red.miColor]);
@@ -756,13 +866,15 @@ async function hint() {
   } else if (zona === exterior) {
     const cerca = player.pos.distanceTo(exterior.lugares.arco) < 22;
     await ui.dialogue([cerca ? EXTERIOR.pistas.arco : EXTERIOR.pistas.camino]);
+  } else if (zona.pista) {
+    await ui.dialogue([zona.pista()]);
   } else {
     const s = state.seals;
     const key = !s.cartel ? 'cartel' : !s.altar ? 'altar' : !s.pergaminos ? 'pergaminos' : 'puerta';
     await ui.dialogue([PISO1.pistas[key]]);
   }
 }
-const grimEntries = () => [...state.learned].map((id) => PISO1.lecciones[id]);
+const grimEntries = () => [...state.learned].map((id) => LECCIONES[id]);
 
 // ---------- Interactuables (cada uno pertenece a una zona) ----------
 const interactables = [
@@ -823,7 +935,7 @@ function nearestInteractable() {
 // ---------- Entrada ----------
 const keys = {};
 addEventListener('keydown', (e) => {
-  if (e.target instanceof HTMLInputElement) return; // escribiendo en los campos de la sala
+  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return; // escribiendo en un campo
   if (['Space', 'ArrowUp', 'ArrowDown', 'Tab'].includes(e.code)) e.preventDefault();
   sonido.iniciar();
   if (ui.handleKey(e)) return;
@@ -908,6 +1020,35 @@ async function startStory() {
 }
 document.getElementById('btn-solo').onclick = startStory;
 
+// Progreso guardado (versión 2): pisos completados y aciertos por criterio.
+// Nunca sale del navegador. Se migra el formato antiguo, que solo tenía el Piso I.
+function leerProgreso() {
+  try {
+    const p = JSON.parse(localStorage.getItem('torreMorvath') || 'null');
+    if (!p) return { version: 2, pisos: {}, criterios: {} };
+    if (p.version === 2) return p;
+    return { version: 2, pisos: p.piso1 ? { piso1: p.piso1 } : {}, criterios: {} };
+  } catch { return { version: 2, pisos: {}, criterios: {} }; }
+}
+// guarda el piso superado y suma los criterios trabajados desde el último guardado
+let criteriosGuardados = {};
+function guardarProgreso(pisoId) {
+  const p = leerProgreso();
+  const total = state.aciertos + state.fallos;
+  const precision = total ? Math.round((state.aciertos / total) * 100) : 100;
+  const segundos = Math.round((performance.now() - state.startedAt) / 1000);
+  const antes = p.pisos[pisoId];
+  p.pisos[pisoId] = { completado: true, mejorPrecision: Math.max(precision, antes?.mejorPrecision ?? 0), segundos };
+  for (const [k, v] of Object.entries(state.criterios)) {
+    const ya = criteriosGuardados[k] ?? { a: 0, f: 0 };
+    const c = (p.criterios[k] ??= { a: 0, f: 0 });
+    c.a += v.a - ya.a;
+    c.f += v.f - ya.f;
+  }
+  criteriosGuardados = structuredClone(state.criterios);
+  try { localStorage.setItem('torreMorvath', JSON.stringify(p)); } catch { /* sin almacenamiento local no se guarda */ }
+}
+
 function finish() {
   state.finished = true;
   state.phase = 'end';
@@ -916,16 +1057,64 @@ function finish() {
   const secs = Math.round((performance.now() - state.startedAt) / 1000);
   const total = state.aciertos + state.fallos;
   const precision = total ? Math.round((state.aciertos / total) * 100) : 100;
-  try {
-    localStorage.setItem('torreMorvath', JSON.stringify({ piso1: { completado: true, saber: state.saber, precision, segundos: secs } }));
-  } catch { /* sin almacenamiento local no se guarda el progreso */ }
+  guardarProgreso(zona.id);
+  const [numero, titulo] = (zona.nombre ?? '').split(' · ');
+  const fin = $('screen-end');
+  fin.querySelector('.title-kicker').textContent = `${numero} superado`;
+  fin.querySelector('.end-title').textContent = titulo ?? '';
+  fin.querySelector('.title-sub').innerHTML = 'La escalera sigue subiendo. <strong>El siguiente piso</strong>, próximamente.';
+  const porCriterio = Object.entries(state.criterios).sort().map(([k, v]) => [`Criterio ${k}`, `${Math.round((v.a / Math.max(1, v.a + v.f)) * 100)}%`]);
   ui.showEnd([
     ['Saber', state.saber],
     ['Aciertos', state.aciertos],
     ['Fallos', state.fallos],
     ['Precisión', `${precision}%`],
     ['Tiempo', `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`],
+    ...porCriterio,
   ]);
+}
+
+// "Continuar en el Piso N" (solo): para quien ya superó el piso anterior en otra sesión
+async function continuarEnPiso(id) {
+  sonido.iniciar();
+  sonido.clic();
+  ui.hideScreen('screen-title');
+  document.getElementById('loading').classList.remove('hidden');
+  let piso;
+  try {
+    piso = await asegurarPiso(id);
+  } catch (e) {
+    console.error(e);
+    location.reload();
+    return;
+  }
+  document.getElementById('loading').classList.add('hidden');
+  state.varita = true;
+  player.mostrarVarita(true);
+  aldric.group.visible = true;
+  state.startedAt = performance.now();
+  await ui.fundido(true);
+  aplicarZona(piso.zona);
+  colocarEn(piso.zona);
+  state.phase = 'play';
+  document.getElementById('hud').classList.remove('hidden');
+  ui.setSaber(0);
+  await esperar(300);
+  await ui.fundido(false);
+  await runFlow(() => piso.intro());
+}
+{
+  const hechos = leerProgreso().pisos;
+  const docente = new URLSearchParams(location.search).has('docente');
+  // el primer piso con carga diferida cuyo anterior ya está superado (con ?docente=1, el último)
+  const disponibles = Object.keys(PISOS).filter((id) => docente || hechos[ORDEN_PISOS[ORDEN_PISOS.indexOf(id) - 1]]?.completado);
+  const destino = disponibles.find((id) => !hechos[id]?.completado) ?? disponibles[disponibles.length - 1];
+  if (destino) {
+    const boton = $('btn-continuar');
+    boton.textContent = `Continuar en el ${CONTENIDO_PISOS.find((c) => c.id === destino).nombre.split(' · ')[0]}`;
+    boton.classList.remove('hidden');
+    boton.onclick = () => continuarEnPiso(destino);
+  }
 }
 document.getElementById('btn-replay').onclick = () => location.reload();
 
@@ -977,6 +1166,8 @@ function tick(dt, t) {
     }
   } else if (zona === exterior) {
     exterior.update(dt, t, fx, player.pos);
+  } else if (zona.actualizar) {
+    zona.actualizar(dt, t);
   } else {
     world.update(dt, t, camera);
   }
@@ -1006,6 +1197,7 @@ function tick(dt, t) {
 
     state.interact = busy() ? null : nearestInteractable();
     for (const c of world.crystals) c.focus = state.interact?.crystal === c;
+    zona.alFocalizar?.(state.interact);
     ui.prompt(state.interact ? state.interact.prompt() : null);
 
     if (zona === exterior && !busy()) {
@@ -1023,9 +1215,15 @@ function tick(dt, t) {
         state.pedido.phishing = true;
         accion('leccion', { id: 'phishing' });
       }
-      if (state.doorOpen && !state.finished && !state.pedido.fin && player.pos.z < ROOM.salida) {
-        state.pedido.fin = true;
-        accion('fin');
+    }
+    // al cruzar la puerta abierta y subir la escalera se pasa al siguiente piso
+    const sal = zona.salida;
+    if (sal && sal.abierta() && !state.finished && player.pos.z < sal.z) {
+      const [tipo, datos] = sal.accion;
+      const clave = `${tipo}:${datos.piso}`;
+      if (!state.pedido[clave]) {
+        state.pedido[clave] = true;
+        accion(tipo, datos);
       }
     }
   }
@@ -1045,9 +1243,14 @@ requestAnimationFrame(frame);
 // aunque la pestaña esté en segundo plano
 let simT = 0;
 window.__torre = {
-  state, player, world, casa, exterior, cam, ui, keys, sonido, aldric, red, companeros,
+  state, player, world, casa, exterior, cam, ui, keys, sonido, aldric, red, companeros, pisos, renderer,
   get zona() { return zona; },
-  irA: (id) => { aplicarZona(zonas[id]); colocarEn(zonas[id]); },
+  // ir a una zona sin fundido (los pisos con carga diferida se construyen antes)
+  async irA(id) {
+    if (PISOS[id]) await asegurarPiso(id);
+    aplicarZona(zonas[id]);
+    colocarEn(zonas[id]);
+  },
   step(n = 1, dt = 1 / 60) {
     for (let i = 0; i < n; i++) tick(dt, (simT += dt));
     composer.render();

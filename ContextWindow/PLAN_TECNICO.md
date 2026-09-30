@@ -6,6 +6,102 @@ Acompaña a `ContextWindow/GUIA_PISOS.md`, que es la versión pedagógica (qué 
 
 ---
 
+## Estado actualizado (30-09-2026, noche): pisos II a VI jugables
+
+Lo hecho desde que se redactó este plan (léelo antes que el resto):
+
+- **Modo equipo entre redes reales:** servidor de retransmisión TURN de Cloudflare (gratis, 1.000 GB/mes) a través del Worker `servidor-turn/` (`https://torre-morvath-turn.servidor-turn.workers.dev/credenciales`). La clave es un secreto del Worker (`wrangler secret put`); `js/config-red.js` solo tiene la URL. Donde este plan dice "sin TURN", ya no es así.
+- **Fase 0, en parte.** Lo necesario para el Piso II sin romper el Piso I:
+  - `js/nucleo/sala-torre.js`: `crearSalaDeTorre()` con origen desplazado y contrato de zona, y `cargarPiezasTorre()` con caché.
+  - `js/mecanicas/logica.js`: lógica pura (regla 3-2-1, corrección por tipo de pregunta, serie de encargos).
+  - `ui.quiz` admite los tipos `numero` y `orden`.
+  - Carga diferida de pisos (`PISOS` y `asegurarPiso()` en `main.js`), con acciones `mec` que llegan antes de construir el piso guardadas en `pendientes`.
+  - Acción genérica `mec` (validar/clave/aplicar del piso) y acción `subir`.
+  - `LECCIONES` y `BANCO` reúnen todos los pisos; repaso espaciado en la varita.
+  - `record(ok, criterio)` y `state.criterios`.
+  - Progreso guardado versión 2, con migración.
+  - Botón "Continuar en el Piso II" (también con `?docente=1`).
+  - `herramientas/validar_contenido.mjs` y `herramientas/pruebas/*.test.mjs`.
+- **Pendiente de la Fase 0:**
+  - Migrar el Piso I a `crearSalaDeTorre`; hoy sigue en `world.js` + `mazmorra.js`.
+  - Extraer `nucleo/` de `main.js`.
+  - Portal de los pisos en la casa, que en equipo elija el anfitrión.
+  - Informe descargable para el profesor.
+  - Mensaje `snap` para quien entra tarde en un piso.
+- **Piso II · La Bóveda de la Memoria** (`js/pisos/piso2.js` + `js/contenido/piso2.js`), en el origen `(0, 0, -700)`:
+  - Sello 1: altar de los soportes, con 9 pedestales y 9 encargos; hay que acertar 3 seguidos.
+  - Sello 2: balanza de las unidades, con una pregunta de ordenar y 3 numéricas; cada jugador la hace en su pantalla y, si falla, sigue desde la prueba en la que se quedó.
+  - Sello 3: cripta 3-2-1, con 3 orbes que se cogen y se dejan en 5 receptáculos (uno es la trampa "otra carpeta del mismo disco"), más una pregunta final sobre copias incrementales.
+  - 15 preguntas de varita (criterio 1.1), música `boveda` y un recuerdo de Morvath: la biblioteca que ardió, que explica su motivo.
+  - Probado solo (los 3 sellos, la salida y la pantalla de fin) y en equipo de 2: orbes cogidos a la vez, encargos y cripta sincronizados.
+  - 285 *draw calls* (Piso I: 271).
+- **Pendiente del Piso II:**
+  - Los opcionales (sistemas de archivos y cifrado de unidad).
+  - Una prueba con 3 jugadores y desconexión con un orbe en la mano. La lógica existe (`jugadorFuera`), pero no está probada.
+- **Piso III · El Scriptorium Binario** (`js/pisos/piso3.js` + `js/contenido/piso3.js`), en el origen `(0, 0, -1400)`:
+  - Sello 1: ocho palancas (el 128 a la izquierda vista desde la sala) y tres puertas en serie: 77, 0x3C y −5 en complemento a 2. La lección de complemento a 2 salta antes de la puerta roja. El atril muestra en vivo el valor sin signo, con signo y en hexadecimal.
+  - Sello 2: inscripción con 4 preguntas (nuevo tipo `texto`: «Hola», código de la «M», UTF-8 de la ñ y el emoji) y la tabla ASCII en la pared.
+  - Sello 3: relicario con 2 pesos (imagen de 6.220.800 B y audio de 31,75 MB) y luego 6 tomos que se llevan a las estanterías «con pérdida» o «sin pérdida».
+  - Guiño: el espejo de las mallas pone al personaje en modo alambre y cuenta sus vértices y caras.
+  - 14 preguntas de varita, música `scriptorium` y un recuerdo: Aldric y Morvath fueron amigos.
+  - Unas 270 *draw calls*: las estanterías están fusionadas y los libros son una malla instanciada.
+- **Motor común nuevo:**
+  - `js/mecanicas/clasificar.js`: la mecánica genérica de coger y llevar objetos, con validación al soltar. Se reutilizará en los pisos VII y XIII.
+  - `js/pisos/comun.js`: `crearSellos` (sellos, recuerdo y puerta), `serieDePreguntas` (progreso individual) y `cartelVivo`.
+  - En `main.js`: `ORDEN_PISOS`, `siguientePiso` y `CONTENIDO_PISOS`. La salida de cada piso hace `subir` al siguiente y el último hace `fin`. La pantalla de fin toma el nombre del piso. El botón «Continuar en el Piso N» sale para el primer piso no superado cuyo anterior sí lo está.
+- **Piso IV · Los Puentes Flotantes** (`js/pisos/piso4.js` + `js/contenido/piso4.js`), en el origen `(0, 0, -2100)`:
+  - Es un **exterior**, sin `crearSalaDeTorre`: 7 islas hexagonales (Medieval Hexagon, en `assets/modelos/islas/`) más el muelle y el islote de la salida, unidas por pasarelas de piedra.
+  - `suelo()` devuelve −200 fuera de islas y pasarelas: el jugador cae y reaparece en la última isla pisada. El arco de la salida (`arch_gate`) lleva las 3 runas.
+  - Sello 1 (`conectar`): los enlaces de luz se tienden con E en un poste y E en otro; repetirlo quita el enlace. Tres fases:
+    1. Estrella: hojas biblioteca, taller y punto de acceso unidas solo al switch, y el switch al router.
+    2. Fibra: todo conexo y Tenerife–Gran Canaria unidas por fibra (primero una pregunta sobre el medio; con otra respuesta, el cable no se tiende).
+    3. Redundancia: `sinPuntoUnico` en el núcleo (router, switch, Tenerife y Gran Canaria).
+  - Sello 2: `ui.formulario()` para 3 equipos con `validarEquipo()` y errores pedagógicos, y luego la explicación de DHCP.
+  - Sello 3: `ui.terminal()` con el intérprete de `js/mecanicas/terminal.js` (ayuda, ipconfig, ping, tracert, reparar y cls). Al abrirla por primera vez, Morvath corta todos los enlaces de Gran Canaria; el anfitrión fija la lista en `validar`. Al reparar uno de ellos, la isla vuelve a responder, se rompe el sello y se restauran los demás.
+  - `tracert` sin ruta llega hasta el router vecino que aún responde, porque los switches no aparecen en `tracert`.
+  - 14 preguntas de varita (criterio 1.2), música `archipielago` y un recuerdo: la discusión «estrella con él en el centro» frente a «malla».
+  - Unas 170 *draw calls*.
+  - Probado solo de principio a fin, incluidos el cable equivocado, el formulario con errores, la terminal y la caída al vacío. **Sin probar en equipo.**
+- **Módulos puros nuevos**, con pruebas en `herramientas/pruebas/redes.test.mjs`:
+  - `js/mecanicas/grafo.js`: `conexo`, `ruta`, `esEstrella`, `puentes` (Tarjan), `sinPuntoUnico` y `subgrafo`.
+  - `js/mecanicas/redes.js`: IPv4, máscaras, privadas, subred y `validarEquipo`.
+  - `js/mecanicas/terminal.js`.
+- **Pendiente del Piso IV:** los opcionales, el faro Wi-Fi y la chatarrería RAEE.
+- **Aviso para scripts:** no escribáis código JS con `\n`, `\b` o `C:\` desde un *heredoc* de Bash con Python: los escapes llegan convertidos en caracteres de control. Escribid el script a un archivo.
+- **Piso V · El Taller de los Heraldos** (`js/pisos/piso5.js` + `js/contenido/piso5.js`), en el origen `(0, 0, -2800)`:
+  - `ui.editorWeb()`: dos `textarea` (HTML y CSS) y una vista previa en un `iframe sandbox=""` con `srcdoc`, más botones de 375, 768 y 1280 px, la lista de requisitos en vivo y el botón «Entregar».
+  - Las imágenes `assets/web/{aldric,torre,boveda}.jpg` son capturas del juego y se inyectan como `data:` URL.
+  - `js/mecanicas/web.js` es un analizador propio de CSS (reglas y `@media`), junto con colores, contraste WCAG y las comprobaciones de los tres sellos. El HTML se analiza con `DOMParser`, que no ejecuta nada.
+  - Sello 1: cartel con h1, p, img con alt, lista de 3 o más elementos, enlace y 3 o más propiedades de CSS.
+  - Sello 2: `@media (max-width)` e `img { max-width: 100% }`.
+  - Sello 3: edicto de Morvath con 5 fallos: `lang`, `alt`, contraste 1,7:1, h1 → h4 y «haz clic aquí».
+  - El primero que entrega rompe el sello; su título, su imagen y su primer párrafo se dibujan en un lienzo colgado en la pared norte para todos. Nunca se envía su HTML.
+  - Lección opcional `ple` en el tablón con el `git log` real del juego.
+  - 14 preguntas de varita (2.2 y 2.3, una de tipo `orden`), música `taller` y un recuerdo: los carteles de Morvath que nadie podía leer.
+  - Unas 190 *draw calls*.
+- **Error arreglado:** `luego: 'cartel'` en una lección de otro piso abría la pregunta del cartel del Piso I. Ahora solo se abre si la lección no lleva `piso`. **Usad nombres de `luego` únicos.**
+- **Dependencias: plan para no necesitar ninguna** (el usuario tendría que aprobar cada una):
+  - Piso VI: la llave se evalúa con muestreo analítico de las primitivas (caja, cilindro, esfera con unión o resta), sin `three-bvh-csg`. Las restas se ven como volúmenes rojos translúcidos.
+  - Piso VIII: los *malware* son los personajes de Adventurers con paleta y tinte propios, sin descargar KayKit Skeletons.
+  - Piso XI: los bloques se ejecutan paso a paso recorriendo su propio árbol JSON, sin `js-interpreter`.
+  - Piso XIII: un mini-SQL propio (SELECT, WHERE, JOIN y UPDATE sobre tablas pequeñas) en vez de `sql.js`, o pedir aprobación.
+- **Piso VI · La Forja de las Formas** (`js/pisos/piso6.js` + `js/contenido/piso6.js`), en el origen `(0, 0, -3500)`, **sin `three-bvh-csg`**:
+  - `js/mecanicas/forja.js` (puro): primitivas caja o cilindro (eje x, y o z) que suman o restan, con `dentroModelo` analítico, `parecido` (IoU por rejilla de 0,1) y `estadisticas` (V, A, C).
+  - `js/mecanicas/forjaVista.js`: una ventana con su propio `WebGLRenderer`. Incluye el plano de la llave, piezas con campos numéricos (posición y medidas), el molde translúcido, ejes X, Y y Z, el parecido en vivo, puntos de control (`CONTROLES`: el ojo hueco, los dientes macizos…) y la descarga STL con `STLExporter` de three/addons (solo las piezas que suman).
+  - Sello 2: banco de medidas con una serie de preguntas (aristas del cubo, Euler, STL y laminado).
+  - Sello 3: `js/mecanicas/elegir.js`, la **mecánica genérica «elegir con encargos»** (atril, pedestales en arco, racha de N aciertos), con programas de 3D.
+  - Opcional: visor de realidades (lección RV, RA y RM). Horno con luz que late (8 luces en total).
+  - Música `forja`, 12 preguntas (2.1) y un recuerdo: las gafas de Morvath que tapan lo que no le gusta.
+  - Unas 220 *draw calls*.
+- **Para añadir el Piso VII:**
+  1. Crear `js/contenido/piso7.js` y `js/pisos/piso7.js` con `ORIGEN (0, 0, -4200)`.
+  2. Añadirlo a `PISOS` y `CONTENIDO_PISOS` en `main.js`.
+  3. Cambiar la salida del Piso VI a `['subir', { piso: 'piso7' }]`.
+  4. Añadirlo a `validar_contenido.mjs`.
+- La pantalla de fin aparece al terminar el último piso construido. Cada piso lleva al siguiente por la escalera.
+
+---
+
 ## Índice
 
 1. Contexto, reglas del usuario y cómo arrancar

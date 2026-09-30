@@ -125,6 +125,31 @@ strong, b { color: #f6e2b0; font-weight: 700; }
 .quiz-feedback.bad { background: rgba(255, 123, 107, 0.08); border: 1px solid rgba(255, 123, 107, 0.4); }
 .quiz-feedback.bad strong { color: var(--bad); }
 .quiz-continue { margin-top: 16px; float: right; }
+/* preguntas de escribir un número */
+.quiz-numero { display: flex; align-items: center; gap: 12px; }
+.quiz-numero input {
+  flex: 1; max-width: 260px; padding: 12px 14px; border-radius: 10px; font: 700 22px 'Alegreya Sans', sans-serif;
+  color: #f6ead0; background: rgba(0, 0, 0, 0.35); border: 1px solid var(--gold-dim); outline: none;
+}
+.quiz-numero input:focus { border-color: var(--gold); }
+.quiz-numero input.correct { border-color: var(--good); }
+.quiz-numero input.wrong { border-color: var(--bad); }
+.quiz-numero .unidad { font-family: Cinzel, serif; font-weight: 700; color: var(--gold); }
+.quiz-comprobar { justify-self: start; }
+/* preguntas de ordenar */
+.quiz-orden-ayuda { margin: 0; font-size: 14px; color: var(--ink-dim); }
+.quiz-orden-respuesta, .quiz-orden-banco { display: flex; flex-wrap: wrap; gap: 8px; min-height: 46px; }
+.quiz-orden-respuesta { padding: 8px; border: 1px dashed var(--gold-dim); border-radius: 10px; }
+.quiz-orden-respuesta .vacio { align-self: center; padding: 0 6px; color: var(--ink-dim); font-size: 14px; }
+.quiz-ficha {
+  display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 999px; cursor: pointer;
+  font: 500 16px 'Alegreya Sans', sans-serif; color: var(--ink); background: rgba(212, 175, 106, 0.08); border: 1px solid var(--gold-dim);
+}
+.quiz-ficha:hover:not(:disabled) { border-color: var(--gold); }
+.quiz-ficha:disabled { opacity: 0.35; cursor: default; }
+.quiz-ficha.puesta { background: rgba(185, 140, 255, 0.14); border-color: rgba(185, 140, 255, 0.55); }
+.quiz-ficha.puesta:disabled { opacity: 1; }
+.quiz-ficha .k { font-family: Cinzel, serif; font-weight: 700; font-size: 13px; color: var(--gold); }
 
 .grim-card h2 { font-family: Cinzel, serif; color: var(--gold); margin: 0; font-size: 28px; }
 .grim-sub { margin: 4px 0 18px; color: var(--ink-dim); }
@@ -254,3 +279,102 @@ h1 {
   #scroll-info { top: auto; bottom: 190px; right: 16px; left: 16px; width: auto; transform: none; }
   .dlg-text { font-size: 17px; }
 }
+
+/* ---------- Formulario (configurar un dispositivo) ---------- */
+.formulario .modal-card { max-width: 560px; }
+.form-campo { display: grid; grid-template-columns: 150px 1fr; gap: 4px 12px; align-items: center; margin-bottom: 12px; }
+.form-campo span { font-family: Cinzel, serif; font-size: 13px; letter-spacing: 0.05em; color: var(--gold); }
+.form-campo input {
+  padding: 9px 12px; border-radius: 8px; font: 600 18px 'Alegreya Sans', monospace; color: #f6ead0;
+  background: rgba(0, 0, 0, 0.35); border: 1px solid var(--gold-dim); outline: none;
+}
+.form-campo input:focus { border-color: var(--gold); }
+.form-campo.mal input { border-color: var(--bad); }
+.form-error { grid-column: 2; font-style: normal; font-size: 14px; line-height: 1.35; color: var(--bad); }
+.form-error:empty { display: none; }
+.form-botones { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+
+/* ---------- Terminal del vigía ---------- */
+.terminal-caja {
+  width: min(820px, 100%); height: min(520px, 90vh); display: flex; flex-direction: column;
+  background: #050806; border: 1px solid rgba(120, 220, 150, 0.45); border-radius: 10px; box-shadow: 0 0 40px rgba(60, 200, 120, 0.15);
+  font-family: Consolas, 'Courier New', monospace; color: #8fe0a8;
+}
+.terminal-titulo { display: flex; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid rgba(120, 220, 150, 0.25); font-size: 13px; color: #6fc08a; }
+.terminal-cerrar { background: none; border: 0; color: inherit; cursor: pointer; font-size: 15px; }
+.terminal-salida { flex: 1; margin: 0; padding: 10px 14px; overflow: auto; white-space: pre-wrap; font: 15px/1.45 Consolas, 'Courier New', monospace; }
+.terminal-linea { display: flex; gap: 6px; padding: 8px 14px 12px; font-size: 15px; }
+.terminal-linea input { flex: 1; background: none; border: 0; outline: none; color: #c8ffd8; font: inherit; caret-color: #8fe0a8; }
+
+/* ---------- Editor web (Piso V) ---------- */
+.editor-caja {
+  width: min(1240px, 100%); height: min(760px, 94vh); display: flex; flex-direction: column; padding: 16px 18px;
+  background: rgba(14, 11, 20, 0.97); border: 1px solid var(--gold-dim); border-radius: 12px;
+}
+.editor-cabecera { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.editor-cabecera h2 { margin: 4px 0 10px; font-family: Cinzel, serif; font-size: 22px; color: #f6ead0; }
+.editor-cuerpo { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+.editor-codigo { display: grid; grid-template-rows: 3fr 2fr; gap: 10px; min-height: 0; }
+.editor-codigo label { display: flex; flex-direction: column; gap: 4px; min-height: 0; font-family: Cinzel, serif; font-size: 12px; letter-spacing: 0.1em; color: var(--gold); }
+.editor-codigo textarea {
+  flex: 1; min-height: 0; resize: none; padding: 10px 12px; border-radius: 8px; tab-size: 2;
+  font: 14px/1.5 Consolas, 'Courier New', monospace; color: #e8e0d0; background: #0a0810; border: 1px solid rgba(212, 175, 106, 0.25); outline: none;
+}
+.editor-codigo textarea:focus { border-color: var(--gold); }
+.editor-lado { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.editor-anchos { display: flex; gap: 6px; }
+.editor-anchos button {
+  padding: 5px 10px; border-radius: 999px; cursor: pointer; font: 500 14px 'Alegreya Sans', sans-serif;
+  color: var(--ink); background: rgba(212, 175, 106, 0.08); border: 1px solid var(--gold-dim);
+}
+.editor-anchos button.activo { border-color: var(--gold); background: rgba(212, 175, 106, 0.2); }
+.editor-vista { flex: 1; min-height: 0; overflow: hidden; border-radius: 8px; background: #fff; border: 1px solid var(--gold-dim); }
+.editor-vista iframe { display: block; border: 0; background: #fff; transform-origin: 0 0; }
+.editor-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 15px; }
+.editor-lista li { display: flex; gap: 8px; color: var(--ink-dim); }
+.editor-lista li span { width: 16px; font-weight: 700; color: var(--bad); }
+.editor-lista li.ok { color: var(--ink); }
+.editor-lista li.ok span { color: var(--good); }
+.editor-entregar { align-self: flex-end; }
+@media (max-width: 900px) { .editor-cuerpo { grid-template-columns: 1fr; } }
+
+/* ---------- La forja (Piso VI) ---------- */
+.forja-caja {
+  width: min(1320px, 100%); height: min(780px, 95vh); display: flex; flex-direction: column; padding: 14px 16px;
+  background: rgba(14, 11, 20, 0.97); border: 1px solid var(--gold-dim); border-radius: 12px;
+}
+.forja-cuerpo { flex: 1; min-height: 0; display: grid; grid-template-columns: 300px minmax(0, 1fr) 240px; gap: 14px; }
+.forja-izq, .forja-der { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow: auto; font-size: 14px; }
+.forja-plano summary { cursor: pointer; font-family: Cinzel, serif; color: var(--gold); }
+.forja-plano ul { margin: 6px 0 0; padding-left: 16px; line-height: 1.4; color: var(--ink-dim); }
+.forja-plano em { color: var(--bad); font-style: normal; }
+.forja-anadir { display: flex; gap: 6px; }
+.forja-anadir button, .forja-piezas button {
+  padding: 5px 10px; border-radius: 8px; cursor: pointer; font: 600 14px 'Alegreya Sans', sans-serif;
+  color: var(--ink); background: rgba(212, 175, 106, 0.1); border: 1px solid var(--gold-dim);
+}
+.forja-piezas { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.forja-piezas li { display: flex; justify-content: space-between; align-items: center; padding: 5px 8px; border-radius: 8px; cursor: pointer; border: 1px solid transparent; }
+.forja-piezas li.sel { border-color: var(--gold); background: rgba(212, 175, 106, 0.12); }
+.forja-piezas li.vacio { color: var(--ink-dim); cursor: default; }
+.forja-piezas button { padding: 1px 7px; }
+.forja-campos .fila { display: flex; gap: 6px; margin-bottom: 6px; }
+.forja-campos .fila.titulo { font-family: Cinzel, serif; font-size: 12px; color: var(--gold); margin: 6px 0 2px; }
+.forja-campos label { flex: 1; display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--ink-dim); }
+.forja-campos input, .forja-campos select {
+  width: 100%; padding: 5px 6px; border-radius: 6px; font: 600 15px 'Alegreya Sans', sans-serif;
+  color: #f6ead0; background: rgba(0, 0, 0, 0.4); border: 1px solid var(--gold-dim);
+}
+.forja-vista { position: relative; min-height: 0; border-radius: 8px; overflow: hidden; border: 1px solid var(--gold-dim); }
+.forja-vista canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+.forja-ayuda { position: absolute; left: 10px; bottom: 8px; font-size: 12px; color: var(--ink-dim); pointer-events: none; }
+.forja-parecido { display: grid; gap: 4px; }
+.forja-parecido b { font: 900 34px Cinzel, serif; color: var(--bad); }
+.forja-parecido.ok b { color: var(--good); }
+.forja-parecido .barra { height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+.forja-parecido .barra i { display: block; height: 100%; width: 0; background: var(--gold); transition: width 0.3s; }
+.forja-parecido small { color: var(--ink-dim); }
+.forja-malla { display: grid; gap: 2px; padding: 8px; border-radius: 8px; background: rgba(0, 0, 0, 0.3); }
+.forja-malla b { font-family: Cinzel, serif; font-size: 12px; color: var(--gold); }
+.forja-entregar { margin-top: auto; }
+@media (max-width: 1000px) { .forja-cuerpo { grid-template-columns: 1fr; } }

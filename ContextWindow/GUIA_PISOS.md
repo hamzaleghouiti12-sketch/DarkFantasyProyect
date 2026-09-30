@@ -32,11 +32,11 @@ El Piso I se escribió pensando en **ESO** (contraseñas, verificación en dos p
 | Piso | Nombre | Bloque | Saberes | Criterios |
 |---|---|---|---|---|
 | I | La Cámara de los Sellos *(ya existe)* | III | Contraseñas, 2FA/MFA, phishing (introducción) | 3.1, 3.3 |
-| II | La Bóveda de la Memoria | I | I.1 Almacenamiento | 1.1 |
-| III | El Scriptorium Binario | I | I.2 Codificación de la información | 1.1 |
-| IV | Los Puentes Flotantes | I | I.3 Redes | 1.2 |
-| V | El Taller de los Heraldos | II | Base del bloque II, II.1.1 Web, II.2.4 Accesibilidad | 2.2, 2.3 |
-| VI | La Forja de las Formas | II | II.1.2 Modelado 3D, II.1.3 RV y RA (introducción) | 2.1 |
+| II | La Bóveda de la Memoria *(jugable desde el 30-09)* | I | I.1 Almacenamiento | 1.1 |
+| III | El Scriptorium Binario *(jugable desde el 30-09)* | I | I.2 Codificación de la información | 1.1 |
+| IV | Los Puentes Flotantes *(jugable desde el 30-09)* | I | I.3 Redes | 1.2 |
+| V | El Taller de los Heraldos *(jugable desde el 30-09)* | II | Base del bloque II, II.1.1 Web, II.2.4 Accesibilidad | 2.2, 2.3 |
+| VI | La Forja de las Formas *(jugable desde el 30-09)* | II | II.1.2 Modelado 3D, II.1.3 RV y RA (introducción) | 2.1 |
 | VII | La Gran Biblioteca | II | II.2.1 Licencias, II.2.2 Bulos, II.2.3 Curación | 2.3, 3.3 |
 | VIII | Las Criptas del Contagio | III | III.1.1 Seguridad, III.1.2 Malware | 3.1 |
 | IX | El Tribunal de los Datos | III | III.2 Identificación electrónica, III.3 Protección de datos | 3.2, 3.3 |

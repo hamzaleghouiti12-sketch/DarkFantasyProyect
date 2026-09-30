@@ -6,6 +6,11 @@
 //   casa     → cálida y melancólica: acordes suaves + caja de música
 //   exterior → abierta y fría: bordón grave, acordes lentos, viento y búhos
 //   torre    → opresiva: bordón muy grave, coro oscuro y campana lejana
+//   boveda   → Piso II: grave y metálico, campana lejana y gotas
+//   scriptorium → Piso III: caja de música en re dórico y velas
+//   archipielago → Piso IV: viento y notas agudas espaciadas
+//   taller   → Piso V: pulso suave de 90 bpm y martillo lejano
+//   forja    → Piso VI: golpes de yunque y rugido del horno
 // Efectos: pasos (piedra, hierba, madera), salto, hechizos, impacto,
 // chisporroteo, acierto, fallo, sello, puerta, cristal roto, teletransporte…
 
@@ -16,8 +21,11 @@ const ACORDES = {
   casa: [[50, 57, 62, 65], [46, 53, 58, 62], [43, 50, 55, 58], [45, 52, 57, 61]],   // Rem Sib Solm La
   exterior: [[38, 50, 53, 57], [36, 48, 52, 55], [34, 46, 50, 53], [33, 45, 49, 52]], // Rem Do Sib La
   torre: [[38, 50, 53, 57], [39, 51, 55, 58]],                                        // Rem Mib (frigio)
+  boveda: [[38, 45, 50, 53], [34, 46, 50, 53], [36, 43, 48, 52]],                    // Rem Sib Do
+  scriptorium: [[38, 50, 53, 57], [43, 50, 55, 59], [36, 48, 52, 55], [45, 52, 57, 60]], // Rem Sol Do Lam (dórico)
 };
 const PENTA = [62, 65, 67, 69, 72, 74, 77]; // re menor pentatónica para la caja de música
+const DORICO = [62, 64, 65, 67, 69, 71, 72, 74]; // re dórico (scriptorium)
 
 export class Sonido {
   constructor() {
@@ -219,6 +227,29 @@ export class Sonido {
 
   clic() { this.tono(1500, 0.03, { vol: 0.03 }); }
 
+  // coger y dejar un objeto (los orbes de la cripta 3-2-1)
+  coger() {
+    this.tono(520, 0.18, { tipo: 'triangle', vol: 0.07, hasta: 880 });
+    this.campana(NOTA(84), { vol: 0.05, dur: 0.9, cuando: 0.08 });
+  }
+
+  palanca() {
+    this.tono(900, 0.04, { tipo: 'square', vol: 0.05, filtro: 2500 });
+    this.tono(420, 0.08, { tipo: 'triangle', vol: 0.08, cuando: 0.05 });
+    this.ruido(0.05, { freq: 2200, q: 3, vol: 0.06 });
+  }
+
+  // zumbido que sube al tender un enlace de red
+  cable() {
+    this.tono(180, 0.35, { tipo: 'sawtooth', vol: 0.05, hasta: 720, filtro: 1800 });
+    this.campana(NOTA(88), { vol: 0.04, dur: 0.8, cuando: 0.3 });
+  }
+
+  dejar() {
+    this.tono(660, 0.2, { tipo: 'triangle', vol: 0.07, hasta: 330 });
+    this.tono(90, 0.25, { vol: 0.18 });
+  }
+
   mensaje() {
     this.tono(880, 0.09, { vol: 0.045 });
     this.tono(1320, 0.12, { vol: 0.04, cuando: 0.08 });
@@ -337,6 +368,56 @@ export class Sonido {
       cada(() => this.campana(NOTA(38), { vol: 0.07, dur: 5, destino: salida }), () => 12000 + Math.random() * 6000);
       // crepitar de antorchas
       cada(() => this.ruido(0.025, { freq: 3000 + Math.random() * 2000, q: 5, vol: 0.02 + Math.random() * 0.03, destino: salida }), () => 60 + Math.random() * 220);
+    } else if (nombre === 'scriptorium') {
+      // íntimo: caja de música en modo dórico y crepitar de velas
+      bordon(NOTA(38), 'sine', 0.06, 350);
+      cada(() => acorde(ACORDES.scriptorium[i++ % 4], 10, 0.02, 600), 10000);
+      cada(() => {
+        if (Math.random() < 0.7) this.campana(NOTA(DORICO[Math.floor(Math.random() * DORICO.length)] + 12), { vol: 0.03, dur: 2, destino: salida });
+      }, () => 600 + Math.random() * 1100);
+      cada(() => this.ruido(0.02, { freq: 3500 + Math.random() * 2000, q: 5, vol: 0.012 + Math.random() * 0.02, destino: salida }), () => 90 + Math.random() * 300);
+    } else if (nombre === 'archipielago') {
+      // abierto y ventoso: viento intenso y notas agudas espaciadas
+      bordon(NOTA(38), 'sine', 0.05, 300);
+      viento(0.08);
+      cada(() => acorde(ACORDES.exterior[i++ % 4], 12, 0.018, 700), 12000);
+      cada(() => {
+        if (Math.random() < 0.5) this.campana(NOTA(PENTA[Math.floor(Math.random() * PENTA.length)] + 12), { vol: 0.03, dur: 3.5, destino: salida });
+      }, () => 2200 + Math.random() * 3500);
+    } else if (nombre === 'taller') {
+      // rítmico suave: pulso de 90 bpm con un martillo lejano y acordes cálidos
+      bordon(NOTA(38), 'sine', 0.05, 320);
+      cada(() => acorde(ACORDES.casa[i++ % 4], 9, 0.018, 800), 9000);
+      let golpe = 0;
+      cada(() => {
+        golpe++;
+        this.ruido(0.06, { tipo: 'lowpass', freq: 500, vol: golpe % 4 === 1 ? 0.05 : 0.025, destino: salida });
+        if (golpe % 8 === 5) this.campana(NOTA(69), { vol: 0.025, dur: 1.2, destino: salida });
+      }, 667);
+    } else if (nombre === 'forja') {
+      // grave, con golpes de yunque (ruido y tono corto) cada 2 s y el rugido del horno
+      bordon(NOTA(26), 'sawtooth', 0.04, 200);
+      bordon(NOTA(33), 'sine', 0.05, 300);
+      cada(() => acorde(ACORDES.torre[i++ % 2], 12, 0.02, 500), 12000);
+      let golpe = 0;
+      cada(() => {
+        golpe++;
+        if (golpe % 3 === 0) return;
+        this.ruido(0.08, { freq: 2600, q: 2, vol: 0.05, destino: salida });
+        this.tono(NOTA(64 + (golpe % 2) * 3), 0.6, { vol: 0.025, destino: salida });
+      }, 2000);
+      cada(() => this.ruido(1.8, { tipo: 'lowpass', freq: 220, vol: 0.03, ataque: 0.6, destino: salida }), 1700);
+    } else if (nombre === 'boveda') {
+      // grave y metálico: bordón en re, campana lejana y gotas que caen en la bóveda
+      bordon(NOTA(26), 'sine', 0.08, 300);
+      bordon(NOTA(38), 'triangle', 0.03, 500);
+      bordon(NOTA(45), 'sawtooth', 0.012, 380);
+      cada(() => acorde(ACORDES.boveda[i++ % 3], 14, 0.022, 480), 14000);
+      cada(() => this.campana(NOTA(50), { vol: 0.06, dur: 6, destino: salida }), () => 13000 + Math.random() * 5000);
+      cada(() => {
+        const f = 1800 + Math.random() * 1400;
+        this.tono(f, 0.09, { vol: 0.025, hasta: f * 0.55, destino: salida });
+      }, () => 1500 + Math.random() * 4500);
     }
 
     return {
