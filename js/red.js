@@ -14,9 +14,42 @@
 // Limitación: algunas redes muy cerradas (a veces las de los institutos)
 // bloquean la conexión directa entre ordenadores. En casa suele funcionar.
 
+import { TURN } from './config-red.js';
+
 const PREFIJO = 'torre-morvath-v1-';
 const LETRAS = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // sin I ni O para no confundir con 1 y 0
 export const MAX_JUGADORES = 5;
+
+
+// Servidores ICE: STUN de Google (gratis, para la conexión directa) y, si está
+// configurado en config-red.js, un servidor de retransmisión TURN: el de
+// Cloudflare a través de nuestro Worker (servidor-turn/) o el de Metered.
+let opcionesCache = null;
+async function pedirTurn() {
+  if (TURN.credencialesUrl) {
+    const r = await fetch(TURN.credencialesUrl);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return (await r.json()).iceServers || [];
+  }
+  if (TURN.meteredApp && TURN.meteredApiKey) {
+    const r = await fetch(`https://${TURN.meteredApp}.metered.live/api/v1/turn/credentials?apiKey=${encodeURIComponent(TURN.meteredApiKey)}`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  }
+  return [];
+}
+async function opcionesPeer() {
+  if (opcionesCache) return opcionesCache;
+  const iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
+  try {
+    iceServers.push(...await pedirTurn());
+  } catch (e) {
+    console.warn('No se pudo obtener el servidor de retransmisión; solo conexión directa.', e);
+  }
+  opcionesCache = { config: { iceServers } };
+  return opcionesCache;
+}
+export const hayRetransmision = () => Boolean(TURN.credencialesUrl || (TURN.meteredApp && TURN.meteredApiKey));
 
 // Latido: cada jugador manda una señal por segundo. Si alguien pasa este tiempo
 // sin dar señales, se le da por desconectado (cerrar el navegador de golpe no
@@ -109,7 +142,7 @@ export class Red {
     for (let intento = 0; intento < 5 && !this.peer; intento++) {
       const codigo = codigoAleatorio();
       try {
-        this.peer = await abrir(new Peer(PREFIJO + codigo));
+        this.peer = await abrir(new Peer(PREFIJO + codigo, await opcionesPeer()));
         this.codigo = codigo;
       } catch (e) {
         if (e.type !== 'unavailable-id') throw new Error(`No se pudo crear la sala (${e.type || e.message}).`);
@@ -199,11 +232,22 @@ export class Red {
   // ---------- Invitado ----------
   async unirse(codigo, nombre, perfil = {}) {
     const Peer = await this.cargarPeer();
-    this.peer = await abrir(new Peer());
+    this.peer = await abrir(new Peer(await opcionesPeer()));
     this.miId = this.peer.id;
     const conn = this.peer.connect(PREFIJO + codigo.trim().toUpperCase(), { reliable: true });
     await new Promise((ok, mal) => {
-      const reloj = setTimeout(() => mal(new Error('No responde nadie con ese código. Revísalo o pide al anfitrión que cree la sala de nuevo.')), 12000);
+      const reloj = setTimeout(() => {
+        // la sala existe y respondió, pero la conexión directa se quedó a medias:
+        // las redes no la permiten y hace falta un servidor de retransmisión
+        const ice = conn.peerConnection?.iceConnectionState;
+        if (ice === 'checking' || ice === 'failed' || ice === 'disconnected') {
+          mal(new Error(hayRetransmision()
+            ? 'La sala existe, pero vuestras redes no dejan conectar ni siquiera por el servidor de retransmisión. Probad desde otra red.'
+            : 'La sala existe, pero vuestras redes no dejan conectar directamente. Falta configurar el servidor de retransmisión gratuito (js/config-red.js).'));
+        } else {
+          mal(new Error('No responde nadie con ese código. Revísalo o pide al anfitrión que cree la sala de nuevo.'));
+        }
+      }, 15000);
       this.peer.on('error', (e) => {
         clearTimeout(reloj);
         mal(new Error(e.type === 'peer-unavailable' ? 'No existe ninguna sala con ese código.' : `No se pudo conectar (${e.type}).`));
