@@ -207,6 +207,8 @@ h1 {
 .punto.c0 { background: #d4af6a; }
 .punto.c1 { background: #8cb4ff; }
 .punto.c2 { background: #96e68c; }
+.punto.c3 { background: #c896ff; }
+.punto.c4 { background: #ffb46e; }
 .equipo { font-size: 13px; color: var(--ink-dim); margin: -2px 0 8px; }
 #screen-sala { background: linear-gradient(90deg, rgba(5, 4, 7, 0) 25%, rgba(5, 4, 7, 0.55) 55%, rgba(5, 4, 7, 0.9) 100%); }
 @media (min-width: 901px) { #screen-sala { justify-items: end; padding-right: 6vw; } }
@@ -230,6 +232,8 @@ h1 {
 #chat-lista b.c0 { color: #e6c27a; }
 #chat-lista b.c1 { color: #9cbcff; }
 #chat-lista b.c2 { color: #a6ec9c; }
+#chat-lista b.c3 { color: #d2a8ff; }
+#chat-lista b.c4 { color: #ffc48a; }
 .chat.abierto { pointer-events: auto; }
 .chat.abierto #chat-lista { overflow-y: auto; max-height: 260px; }
 .chat.abierto #chat-lista li.viejo { opacity: 1; }

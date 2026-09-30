@@ -5,9 +5,9 @@ import { Animador } from './modelos.js';
 import { makeLabel } from './textures.js';
 import { instanciar } from './personajes.js';
 
-// color de la capa de cada jugador (0 = original, 1 = azulado, 2 = verdoso)
-export const TINTES = [0xffffff, 0xa9c4ff, 0xb9f0b0];
-const BORDES = ['rgba(212,175,106,0.9)', 'rgba(140,180,255,0.95)', 'rgba(150,230,140,0.95)'];
+// color de cada jugador (0 = original/dorado, 1 = azul, 2 = verde, 3 = morado, 4 = ámbar)
+export const TINTES = [0xffffff, 0xa9c4ff, 0xb9f0b0, 0xd9b8ff, 0xffd2a8];
+const BORDES = ['rgba(212,175,106,0.9)', 'rgba(140,180,255,0.95)', 'rgba(150,230,140,0.95)', 'rgba(200,150,255,0.95)', 'rgba(255,180,110,0.95)'];
 
 // Nombre y, debajo, la etiqueta que cada jugador elige para su personaje.
 export function crearEtiqueta(nombre, lema, color) {

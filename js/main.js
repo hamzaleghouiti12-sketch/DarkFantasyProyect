@@ -203,7 +203,7 @@ function aplicarZona(z) {
 }
 function colocarEn(z) {
   player.pos.copy(z.entrada.pos);
-  if (red.activa) player.pos.x += [0, -1.4, 1.4][red.miColor] ?? 0;
+  if (red.activa) player.pos.x += [0, -1.4, 1.4, -2.8, 2.8][red.miColor] ?? 0;
   player.vel.set(0, 0, 0);
   player.facing = z.entrada.mirada;
   cam.yaw = z.entrada.yaw;

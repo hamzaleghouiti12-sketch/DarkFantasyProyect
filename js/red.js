@@ -1,4 +1,4 @@
-// Modo equipo: de 2 a 3 jugadores, cada uno en su ordenador, conectados
+// Modo equipo: de 2 a 5 jugadores, cada uno en su ordenador, conectados
 // directamente entre navegadores (WebRTC) con la librería gratuita PeerJS.
 //
 // Uno crea la sala (el anfitrión) y recibe un código de 4 letras; los demás
@@ -16,7 +16,7 @@
 
 const PREFIJO = 'torre-morvath-v1-';
 const LETRAS = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // sin I ni O para no confundir con 1 y 0
-export const MAX_JUGADORES = 3;
+export const MAX_JUGADORES = 5;
 
 // Latido: cada jugador manda una señal por segundo. Si alguien pasa este tiempo
 // sin dar señales, se le da por desconectado (cerrar el navegador de golpe no
@@ -142,7 +142,7 @@ export class Red {
           setTimeout(() => conn.close(), 500);
           return;
         }
-        const color = [0, 1, 2].find((c) => !this.jugadores.some((j) => j.color === c));
+        const color = [...Array(MAX_JUGADORES).keys()].find((c) => !this.jugadores.some((j) => j.color === c));
         this.jugadores.push({ id: conn.peer, nombre: String(msg.nombre || 'Aprendiz').slice(0, 16), color, ...limpiarPerfil(msg) });
         this.conexiones.set(conn.peer, conn);
         conn.send({ t: 'bienvenida', id: conn.peer });
