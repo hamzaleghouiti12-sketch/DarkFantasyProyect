@@ -8,6 +8,7 @@
 // = 24 × 36 m, igual que el Piso I. Coordenadas locales: x ∈ [-12, 12], z ∈ [-18, 18];
 // la entrada está al sur (z = +14) y la puerta, al norte (z = -18).
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { cargarPiezas, colocador } from '../modelos.js';
 import * as TX from '../textures.js';
 
@@ -34,6 +35,39 @@ const PUERTA = 0.62;                   // medio ancho del hueco de la puerta
 const ESCALERA = -WZ - 0.5;            // z local donde empieza a subir la escalera
 const SALIDA = -WZ - 2.2;              // z local que termina el piso
 
+// Fusiona piezas que nunca se mueven (suelo, muros, columnas…) en una malla por
+// material: de unas 150 llamadas de dibujo a un puñado (PLAN_TECNICO.md, sección 16).
+export function fusionarEstaticos(objetos, grupo) {
+  grupo.updateMatrixWorld(true);
+  const inversa = new THREE.Matrix4().copy(grupo.matrixWorld).invert();
+  const lotes = new Map();
+  const matriz = new THREE.Matrix4();
+  for (const o of objetos) {
+    o.traverse((m) => {
+      if (!m.isMesh || !m.visible || Array.isArray(m.material)) return;
+      const clave = `${m.material.map?.uuid ?? m.material.uuid}|${m.material.color?.getHex()}|${m.castShadow}`;
+      if (!lotes.has(clave)) lotes.set(clave, { material: m.material, sombra: m.castShadow, geos: [] });
+      const g = m.geometry.clone().applyMatrix4(matriz.multiplyMatrices(inversa, m.matrixWorld));
+      // algunas piezas traen tangentes y otras no: solo se conservan los datos que tienen todas
+      for (const nombre of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(nombre)) g.deleteAttribute(nombre);
+      lotes.get(clave).geos.push(g);
+    });
+  }
+  let fusionadas = 0;
+  for (const lote of lotes.values()) {
+    let g = null;
+    try { g = mergeGeometries(lote.geos); } catch { g = null; }
+    if (!g) { try { g = mergeGeometries(lote.geos.map((x) => (x.index ? x.toNonIndexed() : x))); } catch { g = null; } }
+    if (!g) return 0; // si algún lote no encaja, se deja todo como estaba
+    lote.malla = new THREE.Mesh(g, lote.material);
+    lote.malla.castShadow = lote.sombra;
+    lote.malla.receiveShadow = true;
+  }
+  for (const o of objetos) o.removeFromParent();
+  for (const lote of lotes.values()) { grupo.add(lote.malla); fusionadas += lote.geos.length; }
+  return fusionadas;
+}
+
 const brillo = (r, g, b, extra = {}) => {
   const m = new THREE.MeshBasicMaterial(extra);
   m.color.setRGB(r, g, b);
@@ -54,7 +88,10 @@ export function crearSalaDeTorre({ escena, origen, piezas, fx, estandartes = {},
   const grupo = new THREE.Group();
   grupo.position.copy(origen);
   escena.add(grupo);
-  const poner = colocador(grupo, piezas);
+  const ponerSuelto = colocador(grupo, piezas);
+  const fijas = []; // lo que forma la sala y no se mueve: se fusiona tras las columnas
+  let fundida = false;
+  const poner = (...a) => { const o = ponerSuelto(...a); if (!fundida) fijas.push(o); return o; };
   const azar = TX.rng(semilla);
   const colliders = [];
   const ox = origen.x, oz = origen.z;
@@ -120,6 +157,11 @@ export function crearSalaDeTorre({ escena, origen, piezas, fx, estandartes = {},
       antorchas.push({ luz, llama, pos: new THREE.Vector3(ox + px, 3.65, oz + z), semilla: azar() * 100, t: 0 });
     }
   }
+
+  // todo lo anterior (suelo, muros, ventanas, estandartes, columnas) se funde en pocas mallas;
+  // lo que se coloque después (la puerta, que gira, y los desafíos de cada piso) queda suelto
+  fusionarEstaticos(fijas, grupo);
+  fundida = true;
 
   // ---------- Puerta norte con su hoja giratoria, tres runas y escalera ----------
   const portada = poner('wall_doorway', 0, 0, -WZ, 0, 1, false);

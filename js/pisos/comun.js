@@ -1,9 +1,12 @@
 // Piezas comunes a todos los pisos: los tres sellos con su puerta y el recuerdo
 // de Morvath, las series de preguntas individuales y los carteles que cambian.
+import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { makeLabel } from '../textures.js';
 
 // Tres sellos → runas de la puerta → diálogo final → recuerdo → puerta abierta.
-export function crearSellos(ctx, sala, contenido, claves) {
+// opciones.antesDePuerta: algo que pasa tras el recuerdo y antes de abrir la puerta (el jefe del Piso VIII)
+export function crearSellos(ctx, sala, contenido, claves, opciones = {}) {
   const { ui, sonido } = ctx;
   const sellos = Object.fromEntries(claves.map((k) => [k, false]));
   const estado = { sellos, puerta: false };
@@ -23,6 +26,7 @@ export function crearSellos(ctx, sala, contenido, claves) {
     sonido.teletransporte();
     await ui.dialogue(contenido.memoria.slice(0, -1), 'Recuerdo de la torre');
     await ui.dialogue(contenido.memoria.slice(-1));
+    await opciones.antesDePuerta?.();
     sala.abrirPuerta();
     sonido.puerta();
     estado.puerta = true;
@@ -66,3 +70,28 @@ export function cartelVivo(grupo, pos, opciones = {}) {
   };
 }
 
+// Estantería de madera hecha por código: el armazón es una sola malla y los
+// libros, una malla instanciada (2 llamadas de dibujo en vez de 19)
+export function crearEstanteria() {
+  const g = new THREE.Group();
+  const tablas = [];
+  const caja = (w, h, d, x, y, z) => tablas.push(new THREE.BoxGeometry(w, h, d).translate(x, y, z));
+  caja(0.1, 2.6, 0.6, -1.1, 1.3, 0);
+  caja(0.1, 2.6, 0.6, 1.1, 1.3, 0);
+  caja(2.3, 0.1, 0.6, 0, 2.6, 0);
+  caja(2.3, 0.08, 0.1, 0, 1.3, -0.28);
+  for (const y of [0.1, 0.9, 1.7]) caja(2.2, 0.06, 0.6, 0, y, 0);
+  const armazon = new THREE.Mesh(mergeGeometries(tablas), new THREE.MeshStandardMaterial({ color: 0x5a3d26, roughness: 0.85 }));
+  armazon.castShadow = armazon.receiveShadow = true;
+  const colores = [0x6b2a2a, 0x2a4a6b, 0x3f5a2a, 0x6b5a2a, 0x4a2a6b];
+  const libros = new THREE.InstancedMesh(new THREE.BoxGeometry(0.12, 1, 0.4), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 }), 12);
+  const m = new THREE.Matrix4(), c = new THREE.Color();
+  for (let i = 0; i < 12; i++) {
+    const alto = 0.5 + (i % 3) * 0.08;
+    m.makeScale(1, alto, 1).setPosition(-0.95 + i * 0.16, 0.13 + alto / 2, 0);
+    libros.setMatrixAt(i, m);
+    libros.setColorAt(i, c.setHex(colores[i % 5]));
+  }
+  g.add(armazon, libros);
+  return g;
+}

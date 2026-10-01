@@ -85,14 +85,14 @@ export class Player {
   // Sustituye el muñeco hecho por código (o el personaje anterior) por un
   // modelo animado de KayKit ya preparado (ver personajes.js).
   usarModelo(modelo, clips) {
-    const conVarita = this.varitaGrupo.visible;
     if (this.modelo) this.group.remove(this.modelo);
     this.body.visible = false;
     this.group.add(modelo);
     this.modelo = modelo;
     this.clips = clips;
     this.varitaGrupo = modelo.getObjectByName('varita') ?? this.varitaGrupo;
-    this.varitaGrupo.visible = conVarita;
+    // el arma de cada personaje (espada, hacha, ballesta, dagas): se ve siempre salvo al lanzar
+    this.armas = (modelo.userData.armas ?? []).map((n) => modelo.getObjectByName(n)).filter(Boolean);
     this.tip = modelo.getObjectByName('punta') ?? this.tip;
     this.anim = new Animador(modelo, clips);
     this.anim.bucle('Idle');
@@ -105,7 +105,11 @@ export class Player {
     if (sprites) this.group.add(sprites);
   }
 
-  mostrarVarita(v) { this.varitaGrupo.visible = v; }
+  // tener la varita (Aldric la entrega en su casa); solo se ve mientras se lanza un hechizo
+  mostrarVarita(v) { this.tieneVarita = v; }
+
+  // ataque con el arma (tecla R): la animación de cada personaje
+  atacar(anim) { this.anim?.unaVezSolo(anim, 1.25); }
 
   // color de la capa en el modo equipo (cada jugador un tono)
   tenir(hex) {
@@ -183,6 +187,10 @@ export class Player {
     const pulse = 1 + Math.sin(t * 5) * 0.25 + (this.cast > 0 ? 1.5 : 0);
     this.tipMat.color.setRGB(2.2 * pulse, 1.3 * pulse, 3.5 * pulse);
     this.cast = Math.max(0, this.cast - dt);
+    // varita en la mano solo mientras se lanza; el resto del tiempo, el arma
+    const lanzando = Boolean(this.tieneVarita) && this.cast > 0;
+    this.varitaGrupo.visible = lanzando;
+    for (const a of this.armas ?? []) a.visible = !lanzando;
 
     if (this.anim) {
       if (!this.onGround) this.anim.bucle('Jump_Idle');

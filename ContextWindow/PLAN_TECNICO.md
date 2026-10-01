@@ -6,7 +6,7 @@ Acompaña a `ContextWindow/GUIA_PISOS.md`, que es la versión pedagógica (qué 
 
 ---
 
-## Estado actualizado (30-09-2026, noche): pisos II a VI jugables
+## Estado actualizado (30-09-2026, noche): pisos II a VIII jugables (II a VI subidos en ba920ec)
 
 Lo hecho desde que se redactó este plan (léelo antes que el resto):
 
@@ -22,12 +22,20 @@ Lo hecho desde que se redactó este plan (léelo antes que el resto):
   - Progreso guardado versión 2, con migración.
   - Botón "Continuar en el Piso II" (también con `?docente=1`).
   - `herramientas/validar_contenido.mjs` y `herramientas/pruebas/*.test.mjs`.
+- **Informe para el profesor** (`js/informe.js`, módulo puro con pruebas en `informe.test.mjs`): botón en la portada (si hay progreso guardado) y en la pantalla de fin. Pide el nombre y descarga una página HTML imprimible con los pisos superados (mejor precisión y tiempo) y los 13 criterios con aciertos, fallos, porcentaje y un nivel orientativo. Sale de `localStorage.torreMorvath`; no se envía a ningún sitio.
+- **Entrar a mitad de partida** (o volver tras caerse), en los pisos II a VIII:
+  - el anfitrión acepta el `hola` si `red.motivoNoTarde()` devuelve `null` (en la casa, el exterior, el Piso I o la pantalla de fin se sigue rechazando);
+  - le manda un `snap` con el piso donde está, las acciones aplicadas en ese piso (`registro`, sin `subir` ni `fin`) y `state.hecho`;
+  - el que llega construye el piso y repite esas acciones con `ui.silencio = true` (sin diálogos ni avisos, las preguntas se dan por respondidas y no cuentan en el informe); las acciones nuevas que llegan mientras tanto esperan en `colaTarde`.
+  - Tras repetir las acciones se llama a `jugadorFuera` con cada `quien` que ya no está en la sala (si no, un orbe cogido por alguien que se fue se quedaría flotando).
+  - Probado con 3 pestañas en el Piso III: la tercera entró con 2 de 3 puertas, la inscripción resuelta y una palanca subida, y abrió la tercera puerta para todos.
+- **Mapa de la torre** (el Portal de los pisos, sección 8.8): un pedestal con una torre en miniatura en la casa de Aldric (`casa.mostrarMapa`), visible si hay algún piso desbloqueado (`pisosDisponibles()`, la misma regla que «Continuar en el Piso N»; con `?docente=1`, todos).
+  - Tras activar el cristal, **E** abre la lista y la acción `irPiso` lleva a todo el equipo (da la varita, salta el exterior y el Piso I).
+  - En equipo solo elige el anfitrión, con su progreso; los demás reciben un aviso. `irPiso` no se repite al entrar a mitad de partida.
+  - Probado solo: del mapa al Piso III.
 - **Pendiente de la Fase 0:**
   - Migrar el Piso I a `crearSalaDeTorre`; hoy sigue en `world.js` + `mazmorra.js`.
   - Extraer `nucleo/` de `main.js`.
-  - Portal de los pisos en la casa, que en equipo elija el anfitrión.
-  - Informe descargable para el profesor.
-  - Mensaje `snap` para quien entra tarde en un piso.
 - **Piso II · La Bóveda de la Memoria** (`js/pisos/piso2.js` + `js/contenido/piso2.js`), en el origen `(0, 0, -700)`:
   - Sello 1: altar de los soportes, con 9 pedestales y 9 encargos; hay que acertar 3 seguidos.
   - Sello 2: balanza de las unidades, con una pregunta de ordenar y 3 numéricas; cada jugador la hace en su pantalla y, si falla, sigue desde la prueba en la que se quedó.
@@ -36,8 +44,8 @@ Lo hecho desde que se redactó este plan (léelo antes que el resto):
   - Probado solo (los 3 sellos, la salida y la pantalla de fin) y en equipo de 2: orbes cogidos a la vez, encargos y cripta sincronizados.
   - 285 *draw calls* (Piso I: 271).
 - **Pendiente del Piso II:**
-  - Los opcionales (sistemas de archivos y cifrado de unidad).
-  - Una prueba con 3 jugadores y desconexión con un orbe en la mano. La lógica existe (`jugadorFuera`), pero no está probada.
+  - ~~Los opcionales~~ **Hecho** (2026-10-01): el **archivero** junto al armario del este (`archivero` en el contenido). Es individual y no hace falta para la puerta: lección `sistemasArchivos` (sin interrumpir a los compañeros), 4 casos (FAT32, exFAT, NTFS, ext4) con `serieDePreguntas`, lección `cifradoUnidad` (BitLocker, FileVault, LUKS, VeraCrypt) y una pregunta final; +20 de saber. Dos preguntas nuevas de varita (p2-16, p2-17). Los enunciados de las preguntas no admiten `**` (se verían los asteriscos).
+  - ~~Una prueba con 3 jugadores y desconexión con un orbe en la mano~~ **Probado** (2026-10-01): al cerrar la pestaña de quien lo llevaba, el orbe vuelve al pedestal en ~8 s en las otras dos pantallas; al volver a entrar a mitad de partida ve los 3 orbes en el pedestal y puede coger uno.
 - **Piso III · El Scriptorium Binario** (`js/pisos/piso3.js` + `js/contenido/piso3.js`), en el origen `(0, 0, -1400)`:
   - Sello 1: ocho palancas (el 128 a la izquierda vista desde la sala) y tres puertas en serie: 77, 0x3C y −5 en complemento a 2. La lección de complemento a 2 salta antes de la puerta roja. El atril muestra en vivo el valor sin signo, con signo y en hexadecimal.
   - Sello 2: inscripción con 4 preguntas (nuevo tipo `texto`: «Hola», código de la «M», UTF-8 de la ñ y el emoji) y la tabla ASCII en la pared.
@@ -66,7 +74,10 @@ Lo hecho desde que se redactó este plan (léelo antes que el resto):
   - `js/mecanicas/grafo.js`: `conexo`, `ruta`, `esEstrella`, `puentes` (Tarjan), `sinPuntoUnico` y `subgrafo`.
   - `js/mecanicas/redes.js`: IPv4, máscaras, privadas, subred y `validarEquipo`.
   - `js/mecanicas/terminal.js`.
-- **Pendiente del Piso IV:** los opcionales, el faro Wi-Fi y la chatarrería RAEE.
+- **Opcionales del Piso IV** (hechos el 2026-10-01; individuales, no hacen falta para la salida, +20 de saber cada uno):
+  - **Faro Wi-Fi** (la torre de Tenerife): lección `wifiCasa` y `ui.formulario` con SSID, seguridad y contraseña, validado por `validarWifi()` en `redes.js` (pruebas en `wifi.test.mjs`): rechaza abierta, WEP y WPA2, contraseñas de menos de 12 caracteres, con palabras típicas o con el SSID, y SSID con datos personales.
+  - **Pozo de la chatarra** (el pozo del muelle): lección `raee` (RAEE, reutilizar/reparar/reciclar, obsolescencia programada y percibida, derecho a reparar) y 5 casos con `serieDePreguntas`. Se hizo como preguntas en vez de con `clasificar` para que sea individual.
+  - Dos preguntas nuevas de varita (p4-15, p4-16). Ojo: en el Piso IV el `grupo` ya está en el origen del piso; lo que se añade al grupo va en coordenadas locales (`aMundo` es para el mundo: partículas y colisiones).
 - **Aviso para scripts:** no escribáis código JS con `\n`, `\b` o `C:\` desde un *heredoc* de Bash con Python: los escapes llegan convertidos en caracteres de control. Escribid el script a un archivo.
 - **Piso V · El Taller de los Heraldos** (`js/pisos/piso5.js` + `js/contenido/piso5.js`), en el origen `(0, 0, -2800)`:
   - `ui.editorWeb()`: dos `textarea` (HTML y CSS) y una vista previa en un `iframe sandbox=""` con `srcdoc`, más botones de 375, 768 y 1280 px, la lista de requisitos en vivo y el botón «Entregar».
@@ -93,10 +104,84 @@ Lo hecho desde que se redactó este plan (léelo antes que el resto):
   - Opcional: visor de realidades (lección RV, RA y RM). Horno con luz que late (8 luces en total).
   - Música `forja`, 12 preguntas (2.1) y un recuerdo: las gafas de Morvath que tapan lo que no le gusta.
   - Unas 220 *draw calls*.
-- **Para añadir el Piso VII:**
-  1. Crear `js/contenido/piso7.js` y `js/pisos/piso7.js` con `ORIGEN (0, 0, -4200)`.
+- **Piso VII · La Gran Biblioteca** (`js/pisos/piso7.js` + `js/contenido/piso7.js`), en el origen `(0, 0, -4200)`:
+  - Sello 1: `clasificar` con 10 obras y 8 estanterías: ©, dominio público/CC0, BY, BY-SA, BY-NC, BY-ND, software libre y propietario. Nuevas opciones de `clasificar`: `alCoger` (un aviso con el caso de la obra) y `escalonar` (etiquetas a dos alturas).
+  - `crearEstanteria()` se ha movido a `js/pisos/comun.js`.
+  - Sello 2: `abrirTablon()` (`js/mecanicas/bibliotecaVista.js`) con 5 pregones. Herramientas: lupa, fecha, autoría y verificador (hay que usar al menos una). Etiquetas: verdadera, bulo, sátira, clickbait y deepfake. Acción: compartir, no difundir, reportar o contrastar.
+  - Sello 3: `abrirBuscador()` sobre un índice local de 20 documentos, con el analizador **puro** `js/mecanicas/buscador.js` («comillas», -palabra, site: y filetype:). Hay 3 retos en los que el libro tiene que salir el primero; las pruebas verifican que una búsqueda ingenua no basta. Después, una pregunta `orden` sobre las fases de la curación.
+  - 13 preguntas de varita (2.3 y 3.3, una de tipo `texto`) y un recuerdo: los pregones falsos firmados con nombres ajenos.
+  - Unas 230 *draw calls*.
+- **Piso VIII · Las Criptas del Contagio** (`js/pisos/piso8.js` + `js/contenido/piso8.js`), en el origen `(0, 0, -4900)`, **sin KayKit Skeletons**:
+  - Las criaturas son el Bárbaro y el Caballero de Adventurers, teñidos, sin varita, sombrero, capa ni casco y sin sombras.
+  - Comportamientos:
+    - virus: sale del cofre cuando alguien lo abre;
+    - gusano: una copia más cada 7 s, hasta 3;
+    - troyano: cofre de oro «¡Regalo gratis!» que se revela al acercarse;
+    - ransomware: cofre encadenado con «Paga 100 monedas»;
+    - spyware: da vueltas mirando al jugador, con un bocadillo «copiando teclas»;
+    - botnet: un nigromante con 2 zombis.
+  - Los paseos se calculan con el tiempo local de cada jugador (son decorativos). Abrir, revelar y desterrar son `mec` con clave única, así que desterrar a la vez cuenta una sola vez.
+  - **Varita genérica en `main.js`:** una zona puede definir `dianas()` (objetos con `group.position`, `alive` y `data`) y `alApuntar(diana)`. `ui.scrollInfo` acepta `data.titulo` y `data.accion`.
+  - Desterrar son 2 preguntas generadas: el tipo (entre 6) y la contramedida (entre 4).
+  - Sello 2: `abrirMuralla()` (`js/mecanicas/murallaVista.js`) con 5 reglas de tráfico que permitir o denegar y 6 prácticas; la comprueba `revisarMuralla()` (lógica pura).
+  - Sello 3: una serie de 3 preguntas de la tríada (confidencialidad, integridad y disponibilidad).
+  - Opcionales: el pozo de la Wi-Fi pública y (2026-10-01) el **taller del parche** en la pared oeste: lección `actualizaciones` (individual), una pregunta de ordenar (copia → sistema → aplicaciones → reiniciar) y 3 de opción (avisos falsos de «actualiza aquí», fin de soporte, el router); +20 de saber. Música `criptas` y 13 preguntas de varita (3.1).
+  - *Draw calls*: unas 230 desde la entrada y **hasta 305** con todas las criaturas a la vista (bajan al desterrarlas).
+- **30-09 (noche) · el usuario pide NO hacer pisos después del VIII.** En su lugar: armas, enemigos variados y optimización.
+  - **Armas por personaje** (`js/armas.js`, puro, y `js/ataques.js`), con la tecla R y las armas que ya traían los modelos:
+    - Caballero: espada y escudo, tajo de 120°.
+    - Bárbaro: hacha a dos manos, giro de 360°.
+    - Pícara: ballesta, virote de 22 m.
+    - Encapuchado: dagas gemelas (`dagger.gltf`), puñalada doble rápida.
+    - La varita solo aparece al lanzar hechizos (`Player.tieneVarita`). Los compañeros ven el arma o la varita según `v`. Mensaje de red `ataque`.
+    - Las zonas pueden definir `alGolpear(diana)`: aturde 3 s.
+  - **Enemigos** (`js/enemigos.js`): 9 tipos, todos de KayKit (CC0) y del mismo estilo que el juego.
+    - KayKit Skeletons: esbirro, guerrero, pícaro e hechicero, con `paleta_esqueleto_oscura.png` y los ojos que brillan.
+    - Los 5 aventureros «corruptos» (caballero, bárbaro, pícara, encapuchado y mago), teñidos y sin armas, sombrero ni capa.
+    - **El usuario probó los monstruos de Quaternius, los rechazó («horribles») y se borraron:** no usar estilos que no sean KayKit.
+    - Todavía no hay jefe final con modelo propio.
+  - **Guardianes** (`js/contenido/guardianes.js` y `js/mecanicas/guardianes.js`): 2 por piso del II al VII.
+    - Patrullan sin hacer daño. R los aturde y F los destierra con una pregunta de repaso (`ctx.preguntaRepaso`), que da +15 de saber.
+    - Acción compartida `guardian` con clave única.
+    - Se enganchan al piso en `ponerGuardianes()` de `main.js`, que añade `dianas`, `alApuntar` y `alGolpear` a la zona.
+  - **Piso VIII**: sus criaturas usan ahora estos modelos:
+    - virus = mago corrupto
+    - gusano = esqueleto esbirro
+    - troyano = esqueleto guerrero
+    - ransomware = bárbaro corrupto
+    - spyware = pícara corrupta
+    - botnet = esqueleto hechicero con 2 caballeros corruptos
+  - **Optimización:** `fusionarEstaticos()` en `sala-torre.js` funde el suelo, los muros, las ventanas, los estandartes y las columnas por material. Resultado en *draw calls*: pisos II a VII entre 90 y 210, Piso VIII 88 (antes 305).
+  - La fusión también se aplica al Piso I (`mazmorra.js`, sin la hoja de la puerta: 277 → 117) al exterior (`exterior.js`: 281 → 50) y a la casa (`casa.js`, sin la hoja de la puerta: 95 → 56). Barrido del 2026-10-01 (llamadas por fotograma, con sombras y posproceso): exterior 50, Piso I 136, II 191, III 158, IV 154, V 96, VI 115, VII 144, VIII 126; ningún error en consola al cargar las 10 zonas. `fusionarEstaticos` conserva solo los atributos position, normal y uv (algunas piezas traen tangentes y no se podían fundir).
+  - **Muebles** (`js/pisos/muebles.js`, KayKit Furniture Bits con `paleta_muebles_oscura.png`, en `assets/modelos/muebles/`):
+    - alfombras teñidas de granate;
+    - estanterías con libros en el Scriptorium;
+    - cuadros en el Taller;
+    - rincón de lectura en la Biblioteca;
+    - un armario en la Bóveda.
+  - **Jefe: la proyección de Morvath** al final del Piso VIII. Es el holograma de Aldric en rojo, con el modelo del mago y 5 escudos que orbitan. `crearSellos` admite `{ antesDePuerta }`.
+    - Duelo sin castigo: una pregunta de cada piso (`jefe.preguntas`, del II al VIII); cada acierto rompe un escudo y un fallo trae una burla.
+    - Al vencerle se desvanece, da +50 de saber y se abre la puerta.
+    - Es individual: en equipo, cada jugador tiene su duelo (probado con 2 jugadores). La acción `fin` se encola con `runFlow` para no cortar un duelo que siga abierto.
+  - **Menú de opciones** (`js/opciones.js`, tecla O; se guarda en `localStorage.torreMorvathOpciones`):
+    - volumen de la música y de los efectos (`Sonido.ajustarVolumen`);
+    - tamaño del texto (100-150 %, con la variable CSS `--texto` y `zoom`);
+    - sensibilidad del ratón e inversión del eje vertical;
+    - reducir el movimiento (sin sacudidas);
+    - **calidad baja** para ordenadores lentos: resolución 1:1, sombras de 1024 en vez de 2048 y sin resplandor (bloom). Si los primeros 8 s de juego van a menos de 28 fps, un aviso sugiere activarla.
+    - La cámara gira también con J y L, así que se puede jugar solo con el teclado.
+    - Los diálogos y avisos llevan `aria-live`, así que un lector de pantalla los lee.
+  - **Controles táctiles** (`js/tactil.js`, solo si `matchMedia('(pointer: coarse)')`):
+    - joystick a la izquierda (al fondo del todo, corre);
+    - arrastrar en el resto de la pantalla gira la cámara (el lienzo sigue un solo dedo por `pointerId`);
+    - botones a la derecha: usar (E), atacar (R), varita (F), saltar, grimorio (G), pista (H), chat (T, solo en equipo) y opciones (O). Envían la tecla equivalente, así que reutilizan toda la lógica del teclado;
+    - se ocultan en la portada y mientras hay un diálogo, pregunta o ventana abierta.
+    - Probado con la emulación táctil del navegador; falta probarlo en una tableta de verdad.
+  - **Probado en equipo de 2** (anfitrión e invitado) en los pisos III (palancas), IV (enlaces), VI (altar), VII (coger obras) y VIII (abrir el cofre): el estado coincide en los dos.
+- **Para añadir el Piso IX (no pedido por ahora):**
+  1. Crear `js/contenido/piso9.js` y `js/pisos/piso9.js` con `ORIGEN (0, 0, -5600)`.
   2. Añadirlo a `PISOS` y `CONTENIDO_PISOS` en `main.js`.
-  3. Cambiar la salida del Piso VI a `['subir', { piso: 'piso7' }]`.
+  3. Cambiar la salida del Piso VIII a `['subir', { piso: 'piso9' }]`.
   4. Añadirlo a `validar_contenido.mjs`.
 - La pantalla de fin aparece al terminar el último piso construido. Cada piso lleva al siguiente por la escalera.
 
@@ -685,6 +770,7 @@ Todas las salas usan `crearSalaDeTorre` (sección 8.3) y las piezas comunes de D
 - **Sello 2 · tablón de pregones (`casos` + herramientas):** 5 noticias. Herramientas: lupa (búsqueda inversa: muestra que la foto es de otro año), sello de fecha, ficha del autor y verificador. Por noticia hay que elegir la etiqueta (bulo, verdadera, sátira, clickbait o deepfake) y la acción (no difundir, reportar, contrastar).
 - **Sello 3 · buscador:** interfaz de buscador falso con índice local de unos 40 "libros". El alumno escribe una consulta que se **evalúa de verdad** con un parser propio (frases entre comillas, `site:`, `filetype:`, `-palabra`) sobre el índice. Reto: que el libro buscado salga el primero. Después, `ordenar` las 5 fases de la curación.
 - **Opcional:** la burbuja de filtros. Un "algoritmo" que recomienda según lo que el jugador ha pulsado en el tablón, y se ve cómo se estrecha.
+  - **Hecho** (2026-10-01) como el **espejo de las recomendaciones** (junto a la entrada, al este), individual: 5 muros de 6 titulares de 6 temas; cada elección da peso a su tema (`js/mecanicas/burbuja.js`, 1 + 4·clics², pruebas en `burbuja.test.mjs`). Al final compara los temas del primer muro y del último, enseña la lección `burbuja` (burbuja de filtros y cámara de eco) y hace una pregunta; +20 de saber.
 - **Pruebas:** el parser de búsqueda como módulo puro con pruebas en Node.
 
 ### 10.8 Piso VIII · Las Criptas del Contagio (III.1.1, III.1.2; crit. 3.1)

@@ -4,6 +4,7 @@
 // El arco al pie de la torre es un portal que lleva al Piso I.
 import * as THREE from 'three';
 import { cargarPiezas, colocador } from './modelos.js';
+import { fusionarEstaticos } from './nucleo/sala-torre.js';
 import * as TX from './textures.js';
 
 export const EXT_O = new THREE.Vector3(400, 0, 0);
@@ -183,7 +184,10 @@ export function crearExterior(escena) {
       cargarPiezas('assets/modelos/exterior', nh, paletaHalloween, 'gltf'),
       cargarPiezas('assets/modelos/exterior', nm, paletaMedieval, 'gltf'),
     ]);
-    const poner = colocador(grupo, { ...ph, ...pm });
+    // nada del exterior se mueve: todo se coloca y al final se funde en pocas mallas
+    const colocar = colocador(grupo, { ...ph, ...pm });
+    const fijas = [];
+    const poner = (...a) => { const o = colocar(...a); fijas.push(o); return o; };
     const azar = TX.rng(21);
 
     // la casa de Aldric y la torre
@@ -283,6 +287,7 @@ export function crearExterior(escena) {
       const a = (i / 16) * Math.PI * 2 + azar() * 0.25, d = 112 + azar() * 22;
       poner(montes[i % 3], Math.cos(a) * d, 0, Math.sin(a) * d, azar() * 6, 26 + azar() * 16, false);
     }
+    fusionarEstaticos(fijas, grupo);
   };
 
   return zona;

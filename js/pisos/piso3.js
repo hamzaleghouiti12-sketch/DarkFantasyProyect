@@ -4,13 +4,13 @@
 //   3. El relicario (norte): calcular pesos de imagen y audio, y clasificar formatos.
 // Guiño: el espejo de las mallas muestra el «esqueleto» 3D del propio personaje.
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import C from '../contenido/piso3.js';
 import { crearSalaDeTorre, cargarPiezasTorre, PIEZAS_BASE } from '../nucleo/sala-torre.js';
 import { makeLabel, glowTexture, parchmentCanvas, canvasTex } from '../textures.js';
 import { leerBits, cumpleObjetivo } from '../mecanicas/logica.js';
 import { crearClasificar } from '../mecanicas/clasificar.js';
-import { crearSellos, serieDePreguntas, cartelVivo } from './comun.js';
+import { amueblar } from './muebles.js';
+import { crearSellos, serieDePreguntas, cartelVivo, crearEstanteria } from './comun.js';
 
 export const ORIGEN = new THREE.Vector3(0, 0, -1400);
 const EXTRA = [
@@ -74,32 +74,6 @@ function crearPalanca() {
   return { g, eje, bolaMat };
 }
 
-// Estantería de madera hecha por código: el armazón es una sola malla y los
-// libros, una malla instanciada (2 llamadas de dibujo en vez de 19)
-function crearEstanteria() {
-  const g = new THREE.Group();
-  const tablas = [];
-  const caja = (w, h, d, x, y, z) => tablas.push(new THREE.BoxGeometry(w, h, d).translate(x, y, z));
-  caja(0.1, 2.6, 0.6, -1.1, 1.3, 0);
-  caja(0.1, 2.6, 0.6, 1.1, 1.3, 0);
-  caja(2.3, 0.1, 0.6, 0, 2.6, 0);
-  caja(2.3, 0.08, 0.1, 0, 1.3, -0.28);
-  for (const y of [0.1, 0.9, 1.7]) caja(2.2, 0.06, 0.6, 0, y, 0);
-  const armazon = new THREE.Mesh(mergeGeometries(tablas), std({ color: 0x5a3d26, roughness: 0.85 }));
-  armazon.castShadow = armazon.receiveShadow = true;
-  const colores = [0x6b2a2a, 0x2a4a6b, 0x3f5a2a, 0x6b5a2a, 0x4a2a6b];
-  const libros = new THREE.InstancedMesh(new THREE.BoxGeometry(0.12, 1, 0.4), std({ color: 0xffffff, roughness: 0.9 }), 12);
-  const m = new THREE.Matrix4(), c = new THREE.Color();
-  for (let i = 0; i < 12; i++) {
-    const alto = 0.5 + (i % 3) * 0.08;
-    m.makeScale(1, alto, 1).setPosition(-0.95 + i * 0.16, 0.13 + alto / 2, 0);
-    libros.setMatrixAt(i, m);
-    libros.setColorAt(i, c.setHex(colores[i % 5]));
-  }
-  g.add(armazon, libros);
-  return g;
-}
-
 // Tomo de formato que se lleva a una estantería
 function crearTomo(obj) {
   const colores = { jpg: 0x8a3a2a, mp3: 0x2a5a8a, h264: 0x6a2a7a, png: 0x2a7a4a, flac: 0x2a6a7a, zip: 0x7a6a2a };
@@ -117,6 +91,12 @@ export async function construir(ctx) {
     estandartes: { normal: 'banner_green', escudo: 'banner_shield_green', fino: 'banner_thin_green' },
   });
   const { poner, obstaculo, aMundo, grupo } = sala;
+  await amueblar(sala, [ // estanterías llenas de libros en los muros y una alfombra en el centro
+    ['shelf_B_large_decorated', -11.9, 1.3, -14, Math.PI / 2], ['shelf_B_large_decorated', -11.9, 2.4, -14, Math.PI / 2],
+    ['shelf_B_large_decorated', 11.9, 1.3, -14, -Math.PI / 2], ['shelf_B_large_decorated', 11.9, 2.4, -14, -Math.PI / 2],
+    ['rug_oval_A', 0, 0.01, 5, 0, 1.4],
+    ['book_set', 10.3, 1.02, -3.2, 0.4],
+  ]);
   const S = crearSellos(ctx, sala, C, SELLOS);
   const est = {
     sellos: S.estado.sellos,

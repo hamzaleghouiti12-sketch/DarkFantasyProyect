@@ -61,3 +61,27 @@ export function validarEquipo(campos, red) {
   if (!leerIp(campos.dns)) errores.dns = 'El DNS es la IP del servidor que traduce nombres a IP (el router, o uno público como 1.1.1.1 u 8.8.8.8).';
   return errores;
 }
+
+// Faro Wi-Fi (opcional del Piso IV): nombre de red, seguridad y contraseña.
+// Devuelve { campo: 'error pedagógico' }; vacío si todo está bien.
+const CLAVES_DEBILES = ['password', 'contraseña', 'contrasena', '123456', 'qwerty', 'admin', 'wifi', 'faro'];
+export function validarWifi(campos) {
+  const errores = {};
+  const ssid = String(campos.ssid ?? '').trim();
+  if (!ssid) errores.ssid = 'La red necesita un nombre (SSID).';
+  else if (ssid.length > 32) errores.ssid = 'El SSID admite como mucho 32 caracteres.';
+  else if (/\d{6,}|calle|piso|\bbajo\b/i.test(ssid)) errores.ssid = 'Mejor un nombre que no dé pistas de quién sois ni de dónde vivís (ni teléfonos ni direcciones).';
+  const seg = String(campos.seguridad ?? '').trim().toUpperCase().replace(/[\s-]+/g, '');
+  if (!seg) errores.seguridad = 'Elegid un tipo de seguridad: WEP, WPA2, WPA3 o abierta.';
+  else if (seg === 'ABIERTA' || seg === 'NINGUNA' || seg === 'OPEN') errores.seguridad = 'Una red abierta deja a cualquiera entrar y espiar el tráfico.';
+  else if (seg.startsWith('WEP')) errores.seguridad = 'WEP se rompe en minutos: está obsoleto.';
+  else if (seg.startsWith('WPA2')) errores.seguridad = 'WPA2 todavía se usa, pero el faro exige lo más seguro que hay hoy: WPA3.';
+  else if (!seg.startsWith('WPA3')) errores.seguridad = 'No conozco ese tipo. Las opciones son WEP, WPA2, WPA3 o abierta.';
+  const clave = String(campos.clave ?? '');
+  const tipos = [/[a-zñ]/, /[A-ZÑ]/, /\d/, /[^A-Za-zÑñ\d]/].filter((r) => r.test(clave)).length;
+  if (clave.length < 12) errores.clave = 'Demasiado corta: al menos 12 caracteres.';
+  else if (CLAVES_DEBILES.some((d) => clave.toLowerCase().includes(d))) errores.clave = 'Contiene una palabra de las primeras que prueban los atacantes.';
+  else if (tipos < 3) errores.clave = 'Mezclad al menos tres tipos: minúsculas, mayúsculas, números y símbolos.';
+  else if (ssid && clave.toLowerCase().includes(ssid.toLowerCase())) errores.clave = 'La contraseña no debe contener el nombre de la red.';
+  return errores;
+}

@@ -37,6 +37,9 @@ export class UI {
   constructor() {
     this.open = { dialogue: false, quiz: false, grimoire: false, story: false, formulario: false, terminal: false, editor: false };
     this.keyTarget = null;
+    // en silencio (al ponerse al día quien entra a mitad de partida) los diálogos
+    // y avisos no se muestran y las preguntas se dan por respondidas
+    this.silencio = false;
   }
 
   anyOpen() { return Object.values(this.open).some(Boolean); }
@@ -49,6 +52,7 @@ export class UI {
 
   // ---------- Diálogo ----------
   dialogue(lines, speaker = 'Holograma de Aldric') {
+    if (this.silencio) return Promise.resolve();
     return new Promise((resolve) => {
       this.onDialogo?.();
       const box = $('dialogue'), txt = box.querySelector('.dlg-text');
@@ -95,6 +99,7 @@ export class UI {
   // ---------- Pregunta ----------
   // Tipos: 'opcion' (por defecto), 'numero', 'texto' y 'orden' (ver contenido/piso2.js y piso3.js).
   quiz(q, kicker) {
+    if (this.silencio) return Promise.resolve(true);
     if (['numero', 'texto', 'orden'].includes(q.tipo)) return this.quizEscrito(q, kicker);
     return new Promise((resolve) => {
       const root = $('quiz');
@@ -538,12 +543,15 @@ export class UI {
     this._scroll = s;
     el.classList.toggle('hidden', !s);
     if (s) {
-      el.querySelector('.scroll-from').textContent = `De: ${s.de}`;
+      el.querySelector('.scroll-kicker').textContent = s.titulo ?? 'Pergamino a la vista';
+      el.querySelector('.scroll-hint').innerHTML = s.accion ?? '<b>F</b> · usar la varita sobre este pergamino';
+      el.querySelector('.scroll-from').textContent = s.titulo ? s.de : `De: ${s.de}`;
       el.querySelector('.scroll-text').textContent = s.texto;
     }
   }
 
   toast(text, kind = 'info', ms = 3400) {
+    if (this.silencio) return;
     const el = document.createElement('div');
     el.className = `toast ${kind}`;
     el.innerHTML = rich(text);

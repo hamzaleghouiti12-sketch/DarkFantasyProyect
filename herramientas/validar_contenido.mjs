@@ -8,10 +8,12 @@ import PISO3 from '../js/contenido/piso3.js';
 import PISO4 from '../js/contenido/piso4.js';
 import PISO5 from '../js/contenido/piso5.js';
 import PISO6 from '../js/contenido/piso6.js';
+import PISO7 from '../js/contenido/piso7.js';
+import PISO8 from '../js/contenido/piso8.js';
 
 const CRITERIOS = ['1.1', '1.2', '2.1', '2.2', '2.3', '3.1', '3.2', '3.3', '4.1', '4.2', '4.3', '4.4', '4.5'];
 const CRITERIO_PISO1 = { contrasenas: '3.1', '2fa': '3.3', phishing: '3.3' }; // igual que en main.js
-const LECCIONES = { ...PISO1.lecciones, ...PISO2.lecciones, ...PISO3.lecciones, ...PISO4.lecciones, ...PISO5.lecciones, ...PISO6.lecciones };
+const LECCIONES = { ...PISO1.lecciones, ...PISO2.lecciones, ...PISO3.lecciones, ...PISO4.lecciones, ...PISO5.lecciones, ...PISO6.lecciones, ...PISO7.lecciones, ...PISO8.lecciones };
 const errores = [];
 const mal = (donde, msg) => errores.push(`${donde}: ${msg}`);
 
@@ -30,6 +32,10 @@ const preguntas = [
   ...PISO5.preguntas.map((q) => ({ ...q, origen: 'piso5' })),
   ...PISO6.preguntas.map((q) => ({ ...q, origen: 'piso6' })),
   ...PISO6.medidas.map((q) => ({ ...q, origen: 'piso6 (medidas)' })),
+  ...PISO7.preguntas.map((q) => ({ ...q, origen: 'piso7' })),
+  { ...PISO7.curacion, origen: 'piso7 (curación)' },
+  ...PISO8.preguntas.map((q) => ({ ...q, origen: 'piso8' })),
+  ...PISO8.triada.map((q) => ({ ...q, origen: 'piso8 (tríada)' })),
 ];
 
 const ids = new Set();
@@ -78,8 +84,14 @@ for (const n of Object.values(PISO4.terminal.dns)) if (!PISO4.terminal.equipos[n
 const programas = new Set(PISO6.programas.opciones.map((o) => o.id));
 PISO6.programas.encargos.forEach((e, i) => { if (!e.correctas.every((c) => programas.has(c))) mal(`piso6 · encargo ${i + 1}`, 'programa desconocido'); });
 
+// Piso VIII: cada criatura tiene un tipo con contramedida
+for (const c of PISO8.criaturas) if (!PISO8.tipos.includes(c.tipo) || !PISO8.contramedidas[c.tipo]) mal(`piso8 · ${c.id}`, 'tipo sin contramedida');
+
+// Piso VIII: las preguntas del duelo con Morvath existen
+for (const id of PISO8.jefe.preguntas) if (!preguntas.some((q) => q.id === id)) mal('piso8 · jefe', `pregunta desconocida: ${id}`);
+
 const porPiso = (p) => preguntas.filter((q) => q.origen === p).length;
-for (const p of ['piso2', 'piso3', 'piso4', 'piso5', 'piso6']) if (porPiso(p) < 12) mal(p, `la varita necesita al menos 12 preguntas (hay ${porPiso(p)})`);
+for (const p of ['piso2', 'piso3', 'piso4', 'piso5', 'piso6', 'piso7', 'piso8']) if (porPiso(p) < 12) mal(p, `la varita necesita al menos 12 preguntas (hay ${porPiso(p)})`);
 
 if (errores.length) {
   console.error(`✗ ${errores.length} problema(s) en el contenido:\n  ${errores.join('\n  ')}`);

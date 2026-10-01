@@ -4,7 +4,7 @@
 // un objeto distinto a la vez; el anfitrión valida cada paso.
 //
 // Uso (desde un piso):
-//   const cl = crearClasificar(ctx, { piso, mec, sala, objetos, receptaculos, mesa, habilitado, alCompletar, visual });
+//   const cl = crearClasificar(ctx, { piso, mec, sala, objetos, receptaculos, mesa, habilitado, alCompletar, visual, alCoger, escalonar });
 //   … añadir cl.interactuables, y enrutar validar/aplicar cuando d.mec === mec.
 import * as THREE from 'three';
 import { makeLabel } from '../textures.js';
@@ -27,12 +27,12 @@ export function crearClasificar(ctx, o) {
     return sala.aMundo(r.x + (orden - 1) * 0.55, r.y ?? 1.7, r.z + (r.dz ?? 0));
   };
 
-  const visuales = objetos.map((obj) => {
+  const visuales = objetos.map((obj, i) => {
     const g = visual ? visual(obj) : new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.4, 0.1), new THREE.MeshStandardMaterial({ color: 0x8a6a50 }));
     const grupo = new THREE.Group();
     grupo.add(g);
     const etiqueta = makeLabel(obj.texto, { height: 0.24, fontSize: 40 });
-    etiqueta.position.y = 0.45;
+    etiqueta.position.y = 0.45 + (o.escalonar ? (i % 2) * 0.32 : 0); // con muchos objetos, a dos alturas
     grupo.add(etiqueta);
     ctx.escena.add(grupo);
     return { grupo, fase: Math.random() * 6 };
@@ -46,7 +46,7 @@ export function crearClasificar(ctx, o) {
     {
       zona: sala.zona, pos: sala.aMundo(mesa.x, 0, mesa.z), r: mesa.radio ?? 2.4,
       enabled: () => puedeUsar() && (llevo() >= 0 || est.some((e) => e.en === 'mesa' && !e.portador)),
-      prompt: () => (llevo() >= 0 ? `**E** · Devolver «${objetos[llevo()].texto}» a la mesa` : '**E** · Coger el objeto más cercano'),
+      prompt: () => (llevo() >= 0 ? `**E** · Devolver «${objetos[llevo()]?.texto ?? ""}» a la mesa` : '**E** · Coger el objeto más cercano'),
       action: () => {
         const mio = llevo();
         if (mio >= 0) return accion('dejar', { obj: mio, rec: 'mesa' });
@@ -64,7 +64,7 @@ export function crearClasificar(ctx, o) {
     ...receptaculos.map((r) => ({
       zona: sala.zona, pos: sala.aMundo(r.x, 0, r.z), r: r.radio ?? 1.8,
       enabled: () => puedeUsar() && llevo() >= 0,
-      prompt: () => `**E** · Dejar «${objetos[llevo()].texto}» en «${r.texto}»`,
+      prompt: () => `**E** · Dejar «${objetos[llevo()]?.texto ?? ""}» en «${r.texto}»`,
       action: () => accion('dejar', { obj: llevo(), rec: r.id }),
     })),
   ];
@@ -88,6 +88,7 @@ export function crearClasificar(ctx, o) {
       e.portador = d.quien;
       e.en = null;
       sonido.coger();
+      if (d.quien === miId()) o.alCoger?.(objetos[d.obj]); // p. ej., mostrar el caso de la obra
       return;
     }
     e.portador = null;

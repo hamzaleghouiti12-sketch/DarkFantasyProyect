@@ -11,6 +11,7 @@
 //   archipielago → Piso IV: viento y notas agudas espaciadas
 //   taller   → Piso V: pulso suave de 90 bpm y martillo lejano
 //   forja    → Piso VI: golpes de yunque y rugido del horno
+//   criptas  → Piso VIII: acordes disminuidos y susurros
 // Efectos: pasos (piedra, hierba, madera), salto, hechizos, impacto,
 // chisporroteo, acierto, fallo, sello, puerta, cristal roto, teletransporte…
 
@@ -22,6 +23,7 @@ const ACORDES = {
   exterior: [[38, 50, 53, 57], [36, 48, 52, 55], [34, 46, 50, 53], [33, 45, 49, 52]], // Rem Do Sib La
   torre: [[38, 50, 53, 57], [39, 51, 55, 58]],                                        // Rem Mib (frigio)
   boveda: [[38, 45, 50, 53], [34, 46, 50, 53], [36, 43, 48, 52]],                    // Rem Sib Do
+  criptas: [[38, 44, 47, 50], [39, 45, 48, 51]],                                      // disminuidos
   scriptorium: [[38, 50, 53, 57], [43, 50, 55, 59], [36, 48, 52, 55], [45, 52, 57, 60]], // Rem Sol Do Lam (dórico)
 };
 const PENTA = [62, 65, 67, 69, 72, 74, 77]; // re menor pentatónica para la caja de música
@@ -33,6 +35,15 @@ export class Sonido {
     this.silencio = false;
     this.ambiente = null;
     this.capas = {};
+    this.volumenes = { musica: 0.5, efectos: 0.85 };
+  }
+
+  // volumen de la música y de los efectos (menú de opciones), de 0 a 1
+  ajustarVolumen(musica, efectos) {
+    this.volumenes = { musica, efectos };
+    if (!this.ctx) return;
+    this.musica.gain.setTargetAtTime(musica, this.ctx.currentTime, 0.05);
+    this.efectos.gain.setTargetAtTime(efectos, this.ctx.currentTime, 0.05);
   }
 
   // Hay que llamarlo tras un clic o una tecla: los navegadores no dejan sonar antes.
@@ -62,11 +73,11 @@ export class Sonido {
     this.reverb.connect(humedo).connect(this.master);
 
     this.musica = ctx.createGain();
-    this.musica.gain.value = 0.5;
+    this.musica.gain.value = this.volumenes.musica;
     this.musica.connect(this.master);
     this.musica.connect(this.reverb);
     this.efectos = ctx.createGain();
-    this.efectos.gain.value = 0.85;
+    this.efectos.gain.value = this.volumenes.efectos;
     this.efectos.connect(this.master);
     const envio = ctx.createGain();
     envio.gain.value = 0.25;
@@ -226,6 +237,23 @@ export class Sonido {
   }
 
   clic() { this.tono(1500, 0.03, { vol: 0.03 }); }
+
+  // ataques con el arma de cada personaje
+  ataque(tipo) {
+    if (tipo === 'disparo') { // chasquido de la cuerda de la ballesta
+      this.tono(220, 0.12, { tipo: 'triangle', vol: 0.12, hasta: 90 });
+      this.ruido(0.05, { freq: 3000, q: 2, vol: 0.1 });
+    } else if (tipo === 'giro') { // barrido largo y grave
+      this.ruido(0.55, { freq: 300, hasta: 1400, q: 1.2, vol: 0.16, ataque: 0.15 });
+      this.tono(90, 0.4, { vol: 0.1, cuando: 0.25 });
+    } else if (tipo === 'punalada') { // dos silbidos cortos
+      this.ruido(0.1, { freq: 2600, hasta: 5000, q: 2, vol: 0.1 });
+      this.ruido(0.1, { freq: 2600, hasta: 5000, q: 2, vol: 0.1, cuando: 0.18 });
+    } else { // tajo de espada
+      this.ruido(0.22, { freq: 900, hasta: 3500, q: 1.5, vol: 0.14 });
+      this.tono(1400, 0.25, { vol: 0.03, cuando: 0.2 });
+    }
+  }
 
   // coger y dejar un objeto (los orbes de la cripta 3-2-1)
   coger() {
@@ -407,6 +435,13 @@ export class Sonido {
         this.tono(NOTA(64 + (golpe % 2) * 3), 0.6, { vol: 0.025, destino: salida });
       }, 2000);
       cada(() => this.ruido(1.8, { tipo: 'lowpass', freq: 220, vol: 0.03, ataque: 0.6, destino: salida }), 1700);
+    } else if (nombre === 'criptas') {
+      // tensión: acordes disminuidos y susurros (ruido de banda estrecha que sube y baja)
+      bordon(NOTA(27), 'sawtooth', 0.035, 180);
+      bordon(NOTA(33), 'sine', 0.05, 260);
+      cada(() => acorde(ACORDES.criptas[i++ % 2], 11, 0.022, 480), 11000);
+      cada(() => this.ruido(1.6, { freq: 1800 + Math.random() * 1500, hasta: 900, q: 9, vol: 0.02, ataque: 0.5, destino: salida }), () => 3500 + Math.random() * 5000);
+      cada(() => this.campana(NOTA(39), { vol: 0.04, dur: 4, destino: salida }), () => 9000 + Math.random() * 7000);
     } else if (nombre === 'boveda') {
       // grave y metálico: bordón en re, campana lejana y gotas que caen en la bóveda
       bordon(NOTA(26), 'sine', 0.08, 300);

@@ -203,7 +203,7 @@ export async function construir(ctx) {
     id: P, nombre: C.nombre, musica: 'forja',
     actualizar, objetivos, pista,
     alFocalizar(it) { foco = it; },
-    salida: { abierta: () => S.estado.puerta, z: sala.salidaZ, accion: ['fin', { piso: P }] },
+    salida: { abierta: () => S.estado.puerta, z: sala.salidaZ, accion: ['subir', { piso: 'piso7' }] },
   });
   zona.grupo.visible = false;
 

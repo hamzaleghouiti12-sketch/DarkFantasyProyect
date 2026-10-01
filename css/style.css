@@ -378,3 +378,85 @@ h1 {
 .forja-malla b { font-family: Cinzel, serif; font-size: 12px; color: var(--gold); }
 .forja-entregar { margin-top: auto; }
 @media (max-width: 1000px) { .forja-cuerpo { grid-template-columns: 1fr; } }
+
+/* ---------- Biblioteca (Piso VII): tablón de pregones y buscador ---------- */
+.tablon-caja, .buscador-caja { max-width: 760px; width: 100%; max-height: 92vh; overflow: auto; }
+.pregon { margin: 10px 0 12px; padding: 14px 16px; border-radius: 10px; background: #efe2c2; color: #2a1a0e; }
+.pregon h2 { margin: 0 0 6px; font: 900 22px Cinzel, serif; color: #3a1a10; }
+.pregon p { margin: 0; font: 17px/1.4 Georgia, serif; }
+.t-herramientas { display: flex; flex-wrap: wrap; gap: 6px; }
+.t-herramientas button, .chip {
+  padding: 6px 12px; border-radius: 999px; cursor: pointer; font: 600 14px 'Alegreya Sans', sans-serif;
+  color: var(--ink); background: rgba(212, 175, 106, 0.1); border: 1px solid var(--gold-dim);
+}
+.t-herramientas button.usada { opacity: 0.55; }
+.chip.elegida { border-color: var(--gold); background: rgba(212, 175, 106, 0.3); color: #fff; }
+.t-pistas { margin: 10px 0; padding-left: 18px; line-height: 1.45; color: var(--ink); }
+.t-fila { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 8px 0; }
+.t-fila span { width: 100px; font-family: Cinzel, serif; font-size: 13px; color: var(--gold); }
+.t-botones { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
+.t-aviso { color: var(--ink-dim); }
+.b-reto { margin: 8px 0 12px; line-height: 1.45; }
+.b-form { display: flex; gap: 8px; }
+.b-q { flex: 1; padding: 10px 14px; border-radius: 999px; font: 16px Consolas, monospace; color: #f6ead0; background: rgba(0, 0, 0, 0.4); border: 1px solid var(--gold-dim); outline: none; }
+.b-ayuda { min-height: 22px; margin: 8px 4px; font-size: 14px; color: var(--ink-dim); }
+.b-ayuda .bien { color: var(--good); }
+.b-resultados { margin: 0; padding-left: 22px; display: grid; gap: 10px; }
+.b-resultados li a { font-size: 17px; font-weight: 700; color: #9fc4ff; }
+.b-resultados li cite { display: block; font-size: 13px; font-style: normal; color: #7fdc9a; }
+.b-resultados li p { margin: 2px 0 0; font-size: 14px; color: var(--ink-dim); }
+.b-resultados li.objetivo a { color: var(--good); }
+.b-resultados li.vacio { color: var(--ink-dim); list-style: none; }
+
+/* ---------- Muralla cortafuegos (Piso VIII) ---------- */
+.muralla-caja { max-width: 900px; width: 100%; max-height: 94vh; overflow: auto; }
+.m-tabla { width: 100%; border-collapse: collapse; font-size: 14px; margin: 8px 0; }
+.m-tabla th { text-align: left; font-family: Cinzel, serif; font-size: 12px; color: var(--gold); padding: 4px 6px; border-bottom: 1px solid var(--gold-dim); }
+.m-tabla td { padding: 6px; border-bottom: 1px solid rgba(212, 175, 106, 0.12); color: var(--ink); }
+.m-tabla tr.mal td { background: rgba(255, 123, 107, 0.12); }
+.m-regla { white-space: nowrap; }
+.m-regla button { padding: 4px 10px; margin-left: 4px; border-radius: 999px; cursor: pointer; font: 600 13px 'Alegreya Sans', sans-serif; color: var(--ink-dim); background: transparent; border: 1px solid var(--gold-dim); }
+.m-regla button.activa[data-v="1"] { color: #10220f; background: var(--good); border-color: var(--good); }
+.m-regla button.activa[data-v="0"] { color: #2a0c08; background: var(--bad); border-color: var(--bad); }
+.m-sub { margin: 14px 0 6px; }
+.m-practicas { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.m-practicas label { display: flex; gap: 8px; cursor: pointer; }
+
+/* ---------- Tamaño del texto (menú de opciones) ---------- */
+#dialogue, #hud, .modal-card, #toasts, .editor-caja, .forja-caja, .terminal-caja { zoom: var(--texto, 1); }
+
+/* ---------- Menú de opciones ---------- */
+.opciones-caja { max-width: 560px; }
+.op-fila { display: grid; grid-template-columns: 200px 1fr 50px; align-items: center; gap: 10px; margin: 10px 0; }
+.op-fila span { color: var(--ink); }
+.op-fila input[type="range"] { accent-color: var(--gold); }
+.op-fila output { font-family: Cinzel, serif; font-size: 13px; color: var(--gold); text-align: right; }
+.op-casilla { grid-template-columns: 24px 1fr; cursor: pointer; }
+.op-casilla input { width: 18px; height: 18px; accent-color: var(--gold); }
+.op-casilla small { display: block; font-size: 13px; color: var(--ink-dim); }
+.op-nota { font-size: 14px; color: var(--ink-dim); }
+
+/* ---------- Controles táctiles (tabletas) ---------- */
+#tactil { position: fixed; inset: 0; pointer-events: none; z-index: 15; user-select: none; -webkit-user-select: none; }
+.tc-joy {
+  position: absolute; left: max(24px, env(safe-area-inset-left)); bottom: 28px; width: 140px; height: 140px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(20, 14, 30, 0.35), rgba(20, 14, 30, 0.6)); border: 2px solid rgba(232, 200, 120, 0.35);
+  pointer-events: auto; touch-action: none;
+}
+.tc-mando {
+  position: absolute; left: 50%; top: 50%; width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%;
+  background: rgba(232, 200, 120, 0.55); box-shadow: 0 0 14px rgba(232, 200, 120, 0.4); pointer-events: none;
+}
+.tc-botones {
+  position: absolute; right: max(20px, env(safe-area-inset-right)); bottom: 24px; display: grid; grid-template-columns: repeat(4, 58px);
+  gap: 10px; direction: rtl; pointer-events: none;
+}
+.tc-btn {
+  width: 58px; height: 58px; border-radius: 50%; border: 2px solid rgba(232, 200, 120, 0.45); background: rgba(20, 14, 30, 0.6);
+  color: #f6e2b0; font: 700 22px Cinzel, serif; pointer-events: auto; touch-action: none; direction: ltr;
+}
+.tc-btn.grande { width: 70px; height: 70px; margin: -6px; font-size: 26px; border-color: rgba(232, 200, 120, 0.8); }
+.tc-btn.pulsado { background: rgba(232, 200, 120, 0.45); color: #1a1022; }
+@media (pointer: coarse) {
+  #controls { display: none; }
+}

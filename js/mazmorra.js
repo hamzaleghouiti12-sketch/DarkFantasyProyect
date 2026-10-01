@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { ROOM } from './world.js';
 import { cargarModelo } from './modelos.js';
 import { rng } from './textures.js';
+import { fusionarEstaticos } from './nucleo/sala-torre.js';
 
 const PIEZAS = [
   'wall', 'wall_cracked', 'wall_arched', 'wall_archedwindow_gated', 'wall_pillar', 'wall_shelves', 'wall_doorway',
@@ -48,8 +49,10 @@ export function vestirMazmorra(world, scene, piezas) {
       m.receiveShadow = true;
     });
     sala.add(o);
+    fijas.push(o);
     return o;
   };
+  const fijas = []; // piezas que no se mueven: al final se funden en pocas mallas (la puerta, no)
   const obstaculo = (x, z, r) => world.colliders.push({ x, z, r, tag: 'decor' });
 
   // fuera la versión hecha por código
@@ -121,6 +124,7 @@ export function vestirMazmorra(world, scene, piezas) {
 
   // ---------- Puerta norte con su hoja giratoria ----------
   const portada = poner('wall_doorway', 0, 0, -WZ, 0, false);
+  fijas.pop(); // la hoja de la puerta gira: queda fuera de la fusión
   const hoja = portada.getObjectByName('wall_doorway_door');
   const d = world.door;
   d.animar = (e) => { if (hoja) hoja.rotation.y = e * 1.75; };
@@ -164,5 +168,6 @@ export function vestirMazmorra(world, scene, piezas) {
   poner('sword_shield', -6, 2.3, WZ - 0.52, Math.PI, false);
   poner('sword_shield', 6, 2.3, WZ - 0.52, Math.PI, false);
 
+  fusionarEstaticos(fijas, sala);
   world.sala = sala;
 }

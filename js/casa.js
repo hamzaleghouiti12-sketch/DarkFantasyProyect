@@ -5,6 +5,8 @@
 import * as THREE from 'three';
 import { cargarPiezas, colocador } from './modelos.js';
 import * as TX from './textures.js';
+import { amueblar } from './pisos/muebles.js';
+import { fusionarEstaticos } from './nucleo/sala-torre.js';
 
 export const CASA_O = new THREE.Vector3(-400, 0, 0);
 const S = 6; // medio lado interior: la sala mide 12 x 12 m (3 x 3 baldosas)
@@ -118,6 +120,52 @@ export function crearCasa(escena) {
   zona.portal = { pos: aMundo(S - 1.1, 0), centro: aMundo(S - 0.4, 0).setY(2) };
   zona.puerta = { pos: aMundo(0, S - 0.7), hoja: null };
 
+  // ---------- El mapa de la torre (Portal de los pisos) ----------
+  // Un pedestal con una torre en miniatura que flota: lleva a los pisos ya
+  // desbloqueados. Solo aparece si hay alguno (main.js decide).
+  const mapa = new THREE.Group();
+  mapa.position.set(-2.7, 0, -4.7);
+  mapa.visible = false;
+  grupo.add(mapa);
+  const piedra = new THREE.MeshStandardMaterial({ color: 0x4a4048, roughness: 0.9 });
+  const pie = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.38, 1.0, 8), piedra);
+  pie.position.y = 0.5;
+  pie.castShadow = true;
+  mapa.add(pie);
+  const tapa = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.08, 8), piedra);
+  tapa.position.y = 1.04;
+  mapa.add(tapa);
+  const mini = new THREE.Group();
+  mini.position.y = 1.2;
+  mapa.add(mini);
+  // ocho pisos de piedra con una franja de luz entre uno y otro, y la cúspide violeta
+  const muro = new THREE.MeshStandardMaterial({ color: 0x8a7a70, roughness: 0.8, emissive: 0x3a2410, emissiveIntensity: 0.25 });
+  const franja = glow(0.9, 0.6, 0.22);
+  for (let i = 0; i < 8; i++) {
+    const r = 0.2 - i * 0.012;
+    const piso = new THREE.Mesh(new THREE.CylinderGeometry(r, r + 0.012, 0.085, 8), muro);
+    piso.position.y = i * 0.1;
+    mini.add(piso);
+    const luz = new THREE.Mesh(new THREE.CylinderGeometry(r - 0.012, r - 0.012, 0.016, 8), franja);
+    luz.position.y = i * 0.1 + 0.05;
+    mini.add(luz);
+  }
+  const punta = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.26, 8), glow(1.0, 0.25, 0.6));
+  punta.position.y = 8 * 0.1 + 0.08;
+  mini.add(punta);
+  const rotulo = TX.makeLabel('Mapa de la torre', { height: 0.22 });
+  rotulo.position.set(0, 2.55, 0);
+  mapa.add(rotulo);
+  const luzMapa = new THREE.PointLight(0xffc870, 0, 3.5, 1.6);
+  luzMapa.position.set(-2.7, 1.8, -4.4);
+  grupo.add(luzMapa);
+  zona.mapa = { pos: aMundo(-2.7, -4.7) };
+  zona.mostrarMapa = (v) => {
+    if (v && !mapa.visible) obstaculo(-2.7, -4.7, 0.5);
+    mapa.visible = v;
+    luzMapa.intensity = v ? 2.5 : 0;
+  };
+
   // ---------- Luz de luna por las ventanas ----------
   const cielo = glow(0.07, 0.11, 0.28);
   for (const [x, z, ry] of [[4, -S - 1.2, 0], [S + 1.2, 4, -Math.PI / 2]]) {
@@ -134,6 +182,10 @@ export function crearCasa(escena) {
     cristalMat.emissiveIntensity = zona.cristal.activo ? 0.6 : 1.6 + Math.sin(t * 4) * 0.5;
     luzCristal.intensity = zona.cristal.activo ? 2 : 5 + Math.sin(t * 4) * 1.5;
     remolino.rotation.z -= dt * 0.8;
+    if (mapa.visible) {
+      mini.rotation.y += dt * 0.6;
+      mini.position.y = 1.2 + Math.sin(t * 1.6) * 0.05;
+    }
     velo.material.opacity = 0.45 + Math.sin(t * 1.7) * 0.15;
     luzPortal.intensity = 7 + Math.sin(t * 3.1) * 1.5;
     if (Math.random() < dt * 14) {
@@ -155,14 +207,16 @@ export function crearCasa(escena) {
       cargarPiezas('assets/modelos/casa', nombresCasa, paleta),
       cargarPiezas('assets/modelos/mazmorra', nombresMazmorra, paleta),
     ]);
-    const poner = colocador(grupo, { ...a, ...b });
+    const colocar = colocador(grupo, { ...a, ...b });
+    const fijas = []; // todo lo que no se mueve se funde al final (menos la puerta)
+    const poner = (...p) => { const o = colocar(...p); fijas.push(o); return o; };
     basico.visible = false;
     const W = S + 0.4;
 
     for (const x of [-4, 0, 4]) for (const z of [-4, 0, 4]) poner('floor_wood_large', x, 0, z, 0, 1, false);
     // muros (una fila de 4 m)
     [['wall', -4], ['wall', 0], ['wall_window_open', 4]].forEach(([n, x]) => poner(n, x, 0, -W, 0, 1, false));
-    const portada = poner('wall_doorway', 0, 0, W, Math.PI, 1, false);
+    const portada = colocar('wall_doorway', 0, 0, W, Math.PI, 1, false);
     poner('wall', -4, 0, W, Math.PI, 1, false);
     poner('wall', 4, 0, W, Math.PI, 1, false);
     [['wall_shelves', -4], ['wall', 0], ['wall', 4]].forEach(([n, z]) => poner(n, -W, 0, z, Math.PI / 2, 1, false));
@@ -201,6 +255,13 @@ export function crearCasa(escena) {
     poner('bottle_A_labeled_green', 3.8, 0, 3.3);
     poner('candle_triple', -5.2, 0, -5.2, 0.4);
     poner('candle_triple', 5.2, 0, -5.3, 1.3);
+    // un hogar de mago: alfombra, libros sobre la mesa y un sillón junto a la cama
+    await amueblar({ grupo, obstaculo }, [
+      ['rug_rectangle_stripes_A', 0, 0.02, 1.8, Math.PI / 2, 1.2],
+      ['book_set', 0.7, 1.02, -3.1, 0.3],
+      ['armchair_pillows', -4.2, 0, 1.6, Math.PI / 2, 0.9, 0.8],
+    ]);
+    fusionarEstaticos(fijas, grupo);
   };
 
   // abre la puerta de la casa (e de 0 a 1)

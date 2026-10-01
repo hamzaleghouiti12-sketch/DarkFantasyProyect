@@ -93,6 +93,8 @@ export class Red {
     this.alMensaje = () => {};
     this.alCambiarSala = () => {};
     this.alCaer = () => {};
+    this.motivoNoTarde = () => 'La partida ya ha empezado.'; // null = se puede entrar a mitad
+    this.alEntrarTarde = () => {};
     this.ultimaSenal = new Map(); // id → hora del último mensaje recibido
     this.ultimoChat = new Map();
     this.pararReloj = null;
@@ -170,8 +172,10 @@ export class Red {
       this.ultimaSenal.set(conn.peer, Date.now());
       if (msg.t === 'latido') return;
       if (msg.t === 'hola') {
-        if (this.empezada || this.jugadores.length >= MAX_JUGADORES) {
-          conn.send({ t: 'rechazo', motivo: this.empezada ? 'La partida ya ha empezado.' : `La sala está llena (máximo ${MAX_JUGADORES} jugadores).` });
+        // con la partida empezada se puede entrar (o volver tras caerse) si el juego lo permite
+        const tarde = this.empezada ? this.motivoNoTarde() : null;
+        if (tarde || this.jugadores.length >= MAX_JUGADORES) {
+          conn.send({ t: 'rechazo', motivo: tarde ?? `La sala está llena (máximo ${MAX_JUGADORES} jugadores).` });
           setTimeout(() => conn.close(), 500);
           return;
         }
@@ -180,6 +184,7 @@ export class Red {
         this.conexiones.set(conn.peer, conn);
         conn.send({ t: 'bienvenida', id: conn.peer });
         this.difundirSala();
+        if (this.empezada) this.alEntrarTarde(conn.peer);
         return;
       }
       if (!this.conexiones.has(conn.peer)) return;
@@ -223,6 +228,11 @@ export class Red {
   difundirSala() {
     this.difundir({ t: 'sala', jugadores: this.jugadores });
     this.alCambiarSala(this.jugadores);
+  }
+
+  enviarA(id, msg) {
+    const c = this.conexiones.get(id);
+    if (c?.open) c.send(msg);
   }
 
   difundir(msg, excepto) {

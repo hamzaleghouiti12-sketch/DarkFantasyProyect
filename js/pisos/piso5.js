@@ -10,6 +10,7 @@ import { crearSalaDeTorre, cargarPiezasTorre, PIEZAS_BASE } from '../nucleo/sala
 import { makeLabel } from '../textures.js';
 import { comprobarCartel, comprobarResponsive, comprobarAccesibilidad } from '../mecanicas/web.js';
 import { crearSellos } from './comun.js';
+import { amueblar } from './muebles.js';
 
 export const ORIGEN = new THREE.Vector3(0, 0, -2800);
 const P = 'piso5';
@@ -69,6 +70,11 @@ export async function construir(ctx) {
     estandartes: { normal: 'banner_yellow', escudo: 'banner_shield_yellow', fino: 'banner_thin_yellow' },
   });
   const { poner, obstaculo, aMundo, grupo } = sala;
+  await amueblar(sala, [ // cuadros de los heraldos en los muros y una alfombra
+    ['pictureframe_large_A', -11.85, 3, -12, Math.PI / 2, 1.4], ['pictureframe_large_B', 11.85, 3, -12, -Math.PI / 2, 1.4],
+    ['pictureframe_medium', -11.85, 3.2, 10, Math.PI / 2, 1.3], ['pictureframe_medium', 11.85, 3.2, 10, -Math.PI / 2, 1.3],
+    ['rug_rectangle_A', 0, 0.01, 1, Math.PI / 2, 1.5],
+  ]);
   const S = crearSellos(ctx, sala, C, SELLOS);
   const est = {
     sellos: S.estado.sellos,

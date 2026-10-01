@@ -11,9 +11,9 @@ import { cargarPiezas, colocador } from '../modelos.js';
 import { cargarPiezasTorre } from '../nucleo/sala-torre.js';
 import { makeLabel, glowTexture, runeGlyphCanvas } from '../textures.js';
 import { conexo, esEstrella, sinPuntoUnico, subgrafo, ruta, clave } from '../mecanicas/grafo.js';
-import { validarEquipo } from '../mecanicas/redes.js';
+import { validarEquipo, validarWifi } from '../mecanicas/redes.js';
 import { crearInterprete } from '../mecanicas/terminal.js';
-import { crearSellos } from './comun.js';
+import { crearSellos, serieDePreguntas } from './comun.js';
 
 export const ORIGEN = new THREE.Vector3(0, 0, -2100);
 const P = 'piso4';
@@ -255,7 +255,82 @@ export async function construir(ctx) {
     entrada: { pos: aMundo(C.muelle.pos[0], 0, C.muelle.pos[1]), mirada: Math.PI, yaw: 0 },
   };
   const nombreIsla = (n) => C.islas[n].nombre;
+
+  // ---------- Opcionales: el faro Wi-Fi (Tenerife) y el pozo de la chatarra (muelle) ----------
+  // Individuales: cada uno en su pantalla, sin interrumpir a los compañeros.
+  const FARO = new THREE.Vector3(20.5, 0, -4), POZO = new THREE.Vector3(2.2, 0, 25.5);
+  const rotulo = (texto, x, y, z) => {
+    const r = makeLabel(texto, { height: 0.42, fontSize: 40, font: 'Cinzel, serif', color: '#d8c8ff' });
+    r.position.set(x, y, z); // el grupo ya está en el origen del piso
+    grupo.add(r);
+    return r;
+  };
+  const rotuloFaro = rotulo('Faro Wi-Fi · opcional', FARO.x, 6.6, FARO.z);
+  const rotuloPozo = rotulo('Pozo de la chatarra · opcional', POZO.x, 3.6, POZO.z);
+  const opc = { faro: false, pozo: false, pasoPozo: 0 };
+  async function leer(id) {
+    const l = C.lecciones[id];
+    await ui.dialogue(l.paginas);
+    if (!aprendido(id)) {
+      estado.learned.add(id);
+      ui.toast(`Nuevo concepto en el grimorio: **${l.titulo}** (G)`, 'learn', 4200);
+    }
+  }
+  async function premio(texto, rot, pos) {
+    rot.visible = false;
+    sonido.acierto();
+    fx.big.emit(aMundo(pos.x, 3, pos.z), { count: 70, color: 0xc8a8ff, intensity: 2, speed: 3, life: 1.1, gravity: -2 });
+    ctx.addSaber(20);
+    ctx.celebrar();
+    await ui.dialogue([texto]);
+  }
+  async function hacerFaro() {
+    if (!aprendido('wifiCasa')) {
+      await ui.dialogue([C.faro.aviso]);
+      await leer('wifiCasa');
+    }
+    let fallo = false;
+    const v = await ui.formulario('Configurar la red del faro', 'Faro Wi-Fi · opcional', [
+      { id: 'ssid', etiqueta: 'Nombre de la red (SSID)', ayuda: 'Un nombre sin datos personales' },
+      { id: 'seguridad', etiqueta: 'Seguridad', ayuda: 'WEP, WPA2, WPA3 o abierta' },
+      { id: 'clave', etiqueta: 'Contraseña', ayuda: 'Al menos 12 caracteres' },
+    ], (d) => {
+      const e = validarWifi(d);
+      if (Object.keys(e).length && !fallo) { fallo = true; ctx.record(false, '1.2'); }
+      return e;
+    });
+    if (!v) return;
+    ctx.record(true, '1.2');
+    opc.faro = true;
+    await premio(C.faro.hecho, rotuloFaro, FARO);
+  }
+  async function hacerPozo() {
+    if (!aprendido('raee')) {
+      await ui.dialogue([C.chatarra.aviso]);
+      await leer('raee');
+    }
+    const casos = C.chatarra.casos.map((c) => ({ ...c, concepto: 'raee', criterio: '1.2', tipo: 'opcion', opciones: C.chatarra.opciones }));
+    const prog = { paso: opc.pasoPozo };
+    const ok = await serieDePreguntas(ctx, casos, 'El pozo de la chatarra', prog);
+    opc.pasoPozo = prog.paso;
+    if (!ok) return;
+    opc.pozo = true;
+    await premio(C.chatarra.hecho, rotuloPozo, POZO);
+  }
+
   const interactuables = [
+    {
+      zona, pos: aMundo(FARO.x - 1.6, 0, FARO.z + 1.6), r: 2.4,
+      enabled: () => !opc.faro,
+      prompt: () => '**E** · Configurar el **faro Wi-Fi** (opcional)',
+      action: hacerFaro,
+    },
+    {
+      zona, pos: aMundo(POZO.x, 0, POZO.z), r: 2.4,
+      enabled: () => !opc.pozo,
+      prompt: () => '**E** · Mirar en el **pozo de la chatarra** (opcional)',
+      action: hacerPozo,
+    },
     ...NODOS.map((n) => ({
       zona, pos: postes[n].pos, r: 2.0,
       enabled: () => !est.sellos.red,

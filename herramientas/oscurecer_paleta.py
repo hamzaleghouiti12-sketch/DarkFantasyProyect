@@ -35,6 +35,8 @@ TRABAJOS = [
     ('paleta_mazmorra.png', 'paleta_mazmorra_oscura.png', 'escenario'),
     ('paleta_halloween.png', 'paleta_halloween_oscura.png', 'exterior'),
     ('paleta_medieval.png', 'paleta_medieval_oscura.png', 'exterior'),
+    ('paleta_esqueleto.png', 'paleta_esqueleto_oscura.png', 'personaje'),
+    ('paleta_muebles.png', 'paleta_muebles_oscura.png', 'escenario'),
 ]
 COLS, FILAS = 8, 4
 

@@ -66,6 +66,76 @@ export default {
         'Cuando estén los tres colocados, la cripta comprobará si cumplís la regla **3-2-1**.',
       ],
     },
+    sistemasArchivos: {
+      titulo: 'Sistemas de archivos',
+      resumen: 'El sistema de archivos organiza los datos dentro de un soporte. FAT32: compatible con casi todo, pero no admite archivos de más de 4 GB ni permisos. exFAT: para pendrives y tarjetas grandes; admite archivos enormes y lo leen y escriben Windows y macOS. NTFS: el de Windows; permisos por usuario, diario (journaling) y cifrado; macOS solo lo lee. ext4: el habitual en Linux, con permisos y diario. APFS: el de macOS e iOS, pensado para SSD, con instantáneas y cifrado. Formatear con un sistema de archivos borra lo que había.',
+      paginas: [
+        'Un disco recién comprado es como una biblioteca sin estanterías. El **sistema de archivos** es la forma de organizarla: dónde empieza cada archivo, cómo se llama, quién puede abrirlo.',
+        '**FAT32** es el más antiguo y el más compatible: lo entienden ordenadores, cámaras, consolas y televisores. Pero **no admite archivos de más de 4 GB** y no tiene permisos.',
+        '**exFAT** es su sucesor para **pendrives y tarjetas grandes**: admite archivos enormes y lo leen y escriben **Windows y macOS**. Ideal para llevar datos de un sistema a otro.',
+        '**NTFS** es el de **Windows**: permisos por usuario, **diario** (si se va la luz, el disco se recupera mejor) y cifrado. macOS lo puede leer, pero no escribir sin programas extra.',
+        '**ext4** es el habitual en **Linux** (y en muchos servidores), y **APFS** el de **macOS e iOS**, pensado para SSD, con instantáneas y cifrado.',
+        'Un aviso: **formatear** un soporte con otro sistema de archivos **borra** lo que tenía. Primero se copia, luego se formatea.',
+      ],
+    },
+    cifradoUnidad: {
+      titulo: 'Cifrado de unidad',
+      resumen: 'Cifrar la unidad completa hace que sus datos sean ilegibles sin la contraseña o la clave: si roban el portátil, no pueden leerlos. Windows: BitLocker. macOS: FileVault. Linux: LUKS. Multiplataforma y libre: VeraCrypt. Guardad la clave de recuperación fuera del equipo (si se pierde, los datos se pierden). Cifrar no sustituye a las copias de seguridad.',
+      paginas: [
+        'Las copias protegen contra la **pérdida**. El **cifrado** protege contra el **robo**: si alguien se lleva el portátil o el disco, sin la clave solo verá datos sin sentido.',
+        'Cada sistema trae el suyo: **BitLocker** en Windows, **FileVault** en macOS y **LUKS** en Linux. **VeraCrypt** es libre y funciona en los tres.',
+        'Al activarlo se genera una **clave de recuperación**. Guardadla **fuera del equipo** (impresa, en un gestor de contraseñas…): si la perdéis y olvidáis la contraseña, los datos se pierden para siempre.',
+        'Y recordad: un disco cifrado que se rompe **sigue estando roto**. El cifrado **no sustituye** a las copias de seguridad; se complementan.',
+      ],
+    },
+  },
+
+  // ---------- Opcional · El archivero (sistemas de archivos y cifrado) ----------
+  archivero: {
+    casos: [
+      {
+        id: 'p2-op1', concepto: 'sistemasArchivos', criterio: '1.1', tipo: 'opcion',
+        texto: 'Queréis pasar un vídeo de 6 GB de un PC con Windows a un Mac con un pendrive. ¿Con qué sistema de archivos lo formateáis?',
+        opciones: ['FAT32', 'exFAT', 'NTFS', 'ext4'],
+        correcta: 1,
+        explicacion: 'exFAT admite archivos de más de 4 GB y lo leen y escriben Windows y macOS. FAT32 no admite archivos tan grandes, el Mac no escribe en NTFS y ninguno de los dos entiende ext4 sin programas.',
+      },
+      {
+        id: 'p2-op2', concepto: 'sistemasArchivos', criterio: '1.1', tipo: 'opcion',
+        texto: 'El disco interno de un PC con Windows que usan varios alumnos, cada uno con sus carpetas privadas. ¿Qué sistema de archivos?',
+        opciones: ['NTFS', 'FAT32', 'exFAT', 'APFS'],
+        correcta: 0,
+        explicacion: 'NTFS es el sistema de Windows y tiene permisos por usuario y diario. FAT32 y exFAT no tienen permisos, y APFS es de Apple.',
+      },
+      {
+        id: 'p2-op3', concepto: 'sistemasArchivos', criterio: '1.1', tipo: 'opcion',
+        texto: 'Vais a instalar Linux en el servidor del aula. ¿Qué sistema de archivos es el habitual para su disco?',
+        opciones: ['FAT32', 'NTFS', 'ext4', 'exFAT'],
+        correcta: 2,
+        explicacion: 'ext4 es el sistema habitual en Linux: permisos, diario y buen rendimiento.',
+      },
+      {
+        id: 'p2-op4', concepto: 'sistemasArchivos', criterio: '1.1', tipo: 'opcion',
+        texto: 'Una tarjeta SD de 8 GB para una cámara antigua que solo entiende el formato más compatible. ¿Cuál elegís?',
+        opciones: ['NTFS', 'ext4', 'APFS', 'FAT32'],
+        correcta: 3,
+        explicacion: 'FAT32 es el que entienden casi todos los aparatos, incluso los antiguos. Su límite de 4 GB por archivo no es problema para fotos.',
+      },
+    ],
+    cifrado: {
+      id: 'p2-op5', concepto: 'cifradoUnidad', criterio: '1.1', tipo: 'opcion',
+      texto: 'Os roban el portátil, que tenía BitLocker activado y estaba apagado. ¿Qué es cierto?',
+      opciones: [
+        'El ladrón puede leer los archivos sacando el disco y conectándolo a otro ordenador.',
+        'Sin la contraseña o la clave de recuperación, los datos son ilegibles; pero si no teníais copia, también los habéis perdido vosotros.',
+        'BitLocker borra el disco automáticamente al detectar el robo.',
+        'Con el cifrado ya no hacen falta copias de seguridad.',
+      ],
+      correcta: 1,
+      explicacion: 'El cifrado protege la confidencialidad (nadie puede leerlos), pero no la disponibilidad: sin copia, vosotros también los perdéis.',
+    },
+    aviso: 'Un **archivero** de la bóveda guarda fichas sobre cómo se ordenan los datos dentro de cada soporte. Es **opcional**: da saber extra y no hace falta para abrir la puerta.',
+    hecho: '¡El archivero sella sus fichas! Habéis completado el **reto opcional** de la bóveda (+20 de saber).',
   },
 
   // ---------- Sello 1 · El altar de los soportes ----------
@@ -371,6 +441,25 @@ export default {
       ],
       correcta: 1,
       explicacion: 'El ransomware cifra todo lo que alcanza. Una copia desconectada o fuera queda a salvo. Y pagar no garantiza nada.',
+    },
+    {
+      id: 'p2-16', concepto: 'sistemasArchivos', criterio: '1.1', tipo: 'opcion',
+      texto: 'Al copiar un archivo de 5 GB a un pendrive aparece el error «el archivo es demasiado grande», aunque queda mucho espacio libre. ¿Por qué?',
+      opciones: [
+        'El pendrive está roto.',
+        'El pendrive está en FAT32, que no admite archivos de más de 4 GB.',
+        'Los pendrives no admiten archivos de vídeo.',
+        'Falta memoria RAM.',
+      ],
+      correcta: 1,
+      explicacion: 'FAT32 limita cada archivo a 4 GB. Formateándolo en exFAT (tras copiar lo que tenga) se soluciona.',
+    },
+    {
+      id: 'p2-17', concepto: 'cifradoUnidad', criterio: '1.1', tipo: 'opcion',
+      texto: '¿Qué herramienta cifra el disco completo en un Mac?',
+      opciones: ['BitLocker', 'LUKS', 'FileVault', 'NTFS'],
+      correcta: 2,
+      explicacion: 'FileVault es el cifrado de unidad de macOS. BitLocker es el de Windows, LUKS el de Linux, y NTFS es un sistema de archivos.',
     },
   ],
 };

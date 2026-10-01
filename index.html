@@ -39,14 +39,14 @@
     <div id="prompt" class="hidden"></div>
     <div id="controls" class="panel">
       <span><b>WASD</b> mover</span><span><b>Arrastrar</b> cámara</span><span><b>Shift</b> correr</span><span><b>Espacio</b> saltar</span>
-      <span><b>E</b> interactuar</span><span><b>F</b> varita</span><span><b>G</b> grimorio</span><span><b>H</b> pista</span><span><b>M</b> sonido</span>
+      <span><b>E</b> interactuar</span><span><b>F</b> varita</span><span><b>R</b> atacar</span><span><b>J L</b> girar cámara</span><span><b>O</b> opciones</span><span><b>G</b> grimorio</span><span><b>H</b> pista</span><span><b>M</b> sonido</span>
     </div>
-    <div id="toasts"></div>
+    <div id="toasts" role="status" aria-live="polite"></div>
   </div>
 
   <div id="dialogue" class="hidden">
     <div class="dlg-head"><span class="dlg-speaker"></span><span class="dlg-count"></span></div>
-    <div class="dlg-text"></div>
+    <div class="dlg-text" aria-live="polite"></div>
     <div class="dlg-next">E · Espacio · clic ▸</div>
   </div>
 
@@ -79,7 +79,8 @@
         <button id="btn-equipo" class="btn big secundario">Jugar en equipo</button>
         <button id="btn-continuar" class="btn big secundario hidden">Continuar</button>
       </div>
-      <p class="title-note">Juega con teclado y ratón · Con sonido · En equipo: de 2 a 5 jugadores, cada uno en su ordenador</p>
+      <button id="btn-informe" class="btn-enlace hidden">Informe para el profesor</button>
+      <p class="title-note">Juega con teclado y ratón (o solo teclado: J y L giran la cámara) · En tableta, con joystick y botones en pantalla · <b>O</b> abre las opciones · Con sonido · En equipo: de 2 a 5 jugadores, cada uno en su ordenador</p>
     </div>
   </div>
 
@@ -129,6 +130,7 @@
       <div class="end-stats"></div>
       <p class="title-sub">La escalera sigue subiendo. <strong>Piso III · El Scriptorium Binario</strong>, próximamente.</p>
       <button id="btn-replay" class="btn big">Volver a jugar</button>
+      <button id="btn-informe-fin" class="btn-enlace">Descargar el informe para el profesor</button>
     </div>
   </div>
 

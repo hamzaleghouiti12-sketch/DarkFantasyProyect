@@ -11,6 +11,8 @@ import C from '../contenido/piso2.js';
 import { crearSalaDeTorre, cargarPiezasTorre, PIEZAS_BASE } from '../nucleo/sala-torre.js';
 import { makeLabel, glowTexture } from '../textures.js';
 import { comprobar321, siguienteEncargo } from '../mecanicas/logica.js';
+import { amueblar } from './muebles.js';
+import { serieDePreguntas } from './comun.js';
 
 export const ORIGEN = new THREE.Vector3(0, 0, -700);
 const EXTRA = [
@@ -88,6 +90,11 @@ export async function construir(ctx) {
     estandartes: { normal: 'banner_blue', escudo: 'banner_shield_blue', fino: 'banner_thin_blue' },
   });
   const { poner, obstaculo, aMundo, grupo } = sala;
+  await amueblar(sala, [
+    ['rug_rectangle_stripes_A', 0, 0.01, 12, 0, 1.5],
+    ['cabinet_medium_decorated', 11.3, 0, -6, -Math.PI / 2, 1, 0.9],
+    ['pictureframe_large_A', -11.85, 3, -9, Math.PI / 2, 1.3],
+  ]);
   const est = {
     sellos: { soportes: false, balanza: false, cripta: false },
     encargo: 0, racha: 0,
@@ -289,7 +296,51 @@ export async function construir(ctx) {
 
   // ---------- Interactuables ----------
   const zona = sala.zona;
+  // ---------- Opcional · El archivero (junto al armario del este) ----------
+  // Individual: cada jugador lo hace en su pantalla y no hace falta para la puerta.
+  const ARCH = new THREE.Vector3(10.1, 0, -6);
+  const rotuloArch = makeLabel('Archivero · opcional', { height: 0.3, fontSize: 40, font: 'Cinzel, serif', color: '#d8c8ff' });
+  rotuloArch.position.set(11.1, 2.9, -6);
+  grupo.add(rotuloArch);
+  const archivero = { paso: 0, hecho: false };
+  // lección individual (no interrumpe a los compañeros)
+  async function leer(id) {
+    const l = C.lecciones[id];
+    await ui.dialogue(l.paginas);
+    if (!aprendido(id)) {
+      estado.learned.add(id);
+      ui.toast(`Nuevo concepto en el grimorio: **${l.titulo}** (G)`, 'learn', 4200);
+    }
+  }
+  async function hacerArchivero() {
+    if (!aprendido('sistemasArchivos')) {
+      await ui.dialogue([C.archivero.aviso]);
+      await leer('sistemasArchivos');
+    }
+    if (!(await serieDePreguntas(ctx, C.archivero.casos, 'El archivero', archivero))) return;
+    if (!aprendido('cifradoUnidad')) await leer('cifradoUnidad');
+    const ok = await ui.quiz(C.archivero.cifrado, 'El archivero · última ficha');
+    ctx.record(ok, C.archivero.cifrado.criterio);
+    if (!ok) {
+      await ui.dialogue(['Casi. Repasad el **cifrado de unidad** en el grimorio (**G**) y volved al archivero.']);
+      return;
+    }
+    archivero.hecho = true;
+    rotuloArch.visible = false;
+    sonido.acierto();
+    fx.big.emit(aMundo(ARCH.x + 1, 2, ARCH.z), { count: 70, color: 0xc8a8ff, intensity: 2, speed: 3, life: 1.1, gravity: -2 });
+    ctx.addSaber(20);
+    ctx.celebrar();
+    await ui.dialogue([C.archivero.hecho]);
+  }
+
   const interactuables = [
+    {
+      zona, pos: aMundo(ARCH.x, 0, ARCH.z), r: 1.9,
+      enabled: () => !archivero.hecho,
+      prompt: () => '**E** · Consultar el **archivero** (opcional)',
+      action: hacerArchivero,
+    },
     {
       zona, pos: aMundo(ATRIL.x, 0, ATRIL.z), r: 2.2,
       enabled: () => !est.sellos.soportes,

@@ -72,7 +72,12 @@ export class Companero {
       }
     }
     const varita = this.group.getObjectByName('varita'); // la varita viaja dentro del clon
-    if (varita && typeof m.v === 'boolean') varita.visible = m.v;
+    if (varita && typeof m.v === 'boolean') {
+      varita.visible = m.v;
+      // mientras lanza un hechizo guarda su arma
+      this.armas ??= (this.group.children[0]?.userData.armas ?? []).map((n) => this.group.getObjectByName(n)).filter(Boolean);
+      for (const a of this.armas) a.visible = !m.v;
+    }
   }
 
   update(dt) {

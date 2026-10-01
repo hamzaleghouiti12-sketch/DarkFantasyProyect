@@ -59,3 +59,11 @@ export const cumpleObjetivo = (bits, objetivo) => {
   const v = leerBits(bits);
   return objetivo < 0 ? v.conSigno === objetivo : v.sinSigno === objetivo;
 };
+
+// Muralla cortafuegos (Piso VIII): reglas { id: true/false } frente a lo esperado, y
+// las buenas prácticas marcadas (índices). Devuelve los fallos para explicarlos.
+export function revisarMuralla(trafico, reglas, practicas, marcadas) {
+  const reglasMal = trafico.filter((t) => Boolean(reglas[t.id]) !== t.permitir);
+  const practicasMal = practicas.filter((p, i) => marcadas.includes(i) !== p.buena);
+  return { ok: !reglasMal.length && !practicasMal.length, reglasMal, practicasMal };
+}

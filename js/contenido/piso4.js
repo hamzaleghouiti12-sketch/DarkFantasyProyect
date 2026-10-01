@@ -65,6 +65,46 @@ export default {
         'Usad **ping aldric.umbravel** para comprobarlo y **tracert aldric.umbravel** para ver hasta dónde llegan los paquetes. Cuando sepáis qué enlace falla, escribid **reparar isla1-isla2**.',
       ],
     },
+    wifiCasa: {
+      titulo: 'Configurar una Wi-Fi segura',
+      resumen: 'El SSID es el nombre de la red: mejor uno que no dé pistas de quién sois ni de dónde vivís. Seguridad: WPA3 (o WPA2 si el aparato no admite otra); nunca WEP ni red abierta. Contraseña de al menos 12 caracteres, mezclando minúsculas, mayúsculas, números y símbolos, sin palabras típicas ni el nombre de la red. Cambiad también la contraseña de administración del router que viene de fábrica, desactivad WPS y usad una red de invitados para las visitas.',
+      paginas: [
+        'El faro del archipiélago emite una **red Wi-Fi**. Si está mal configurada, cualquiera desde el muelle podría entrar… o espiar lo que pasa por ella.',
+        'El **SSID** es el nombre de la red. Elegid uno que **no dé pistas** de quién sois ni de dónde vivís: nada de teléfonos, direcciones o «Wifi del 3.º B».',
+        'La **seguridad** decide cómo se cifra lo que viaja por el aire. **WPA3** es lo más seguro hoy; **WPA2** vale si algún aparato no admite otra cosa. **WEP** se rompe en minutos y una red **abierta** no protege nada.',
+        'La **contraseña** debe tener **al menos 12 caracteres** y mezclar minúsculas, mayúsculas, números y símbolos, sin palabras típicas (password, 123456, admin…) ni el nombre de la red.',
+        'Y tres trucos de archimago: cambiad la **contraseña de administración** del router que viene de fábrica, **desactivad WPS** y cread una **red de invitados** para las visitas.',
+      ],
+    },
+    raee: {
+      titulo: 'Residuos electrónicos (RAEE) y obsolescencia',
+      resumen: 'RAEE: residuos de aparatos eléctricos y electrónicos. Contienen metales valiosos (oro, cobre, tierras raras) y sustancias tóxicas (plomo, mercurio, el electrolito de las baterías): nunca a la basura normal. Orden de preferencia: reducir, reutilizar (donar o vender lo que funciona), reparar o mejorar (pantalla, batería, SSD, más RAM) y, al final, reciclar en un punto limpio o en la tienda, que está obligada a recoger el viejo al vender uno nuevo. Obsolescencia programada: diseñar productos para que duren menos. Obsolescencia percibida: cambiar algo que funciona solo por moda. La UE impulsa el derecho a reparar.',
+      paginas: [
+        'Este pozo está lleno de **aparatos viejos**: móviles, portátiles, cargadores, impresoras… Morvath los tira aquí cuando dejan de interesarle. En vuestro mundo se llaman **RAEE**: residuos de aparatos eléctricos y electrónicos.',
+        'Dentro llevan **metales valiosos** (oro, cobre, tierras raras) y **sustancias tóxicas** (plomo, mercurio, las baterías). Por eso **nunca** van a la basura normal.',
+        'Antes de tirar, pensad en este orden: **reducir** (¿de verdad necesito uno nuevo?), **reutilizar** (si funciona, se dona o se vende), **reparar o mejorar** (una pantalla, una batería, un SSD, más RAM) y, al final, **reciclar**.',
+        'Para reciclar: el **punto limpio** o la **tienda**, que está obligada a recoger el aparato viejo cuando vende uno nuevo del mismo tipo.',
+        'Ojo con dos trampas: la **obsolescencia programada** (aparatos diseñados para durar menos) y la **obsolescencia percibida** (cambiar algo que funciona solo porque ha salido otro). La Unión Europea impulsa el **derecho a reparar**.',
+      ],
+    },
+  },
+
+  // ---------- Opcionales del archipiélago (individuales; no hacen falta para la salida) ----------
+  faro: {
+    aviso: 'El **faro** de Tenerife emite la red Wi-Fi del archipiélago… sin contraseña. Es un reto **opcional**: configuradlo bien y ganaréis saber extra.',
+    hecho: '¡El faro brilla con una red segura! Reto **opcional** completado (+20 de saber).',
+  },
+  chatarra: {
+    aviso: 'El **pozo de la chatarra** está lleno de aparatos que Morvath ha tirado. Es un reto **opcional**: decidid qué hacer con cada uno.',
+    opciones: ['Reutilizar (donarlo o venderlo)', 'Reparar o mejorar', 'Reciclar en un punto limpio'],
+    casos: [
+      { id: 'p4-op1', texto: 'Un portátil de 4 años que funciona bien, pero os habéis comprado otro.', correcta: 0, explicacion: 'Si funciona, lo mejor es que siga usándose: donarlo o venderlo alarga su vida.' },
+      { id: 'p4-op2', texto: 'Un móvil con la pantalla rota; todo lo demás funciona.', correcta: 1, explicacion: 'Cambiar la pantalla cuesta mucho menos (en dinero y en recursos) que fabricar un móvil nuevo.' },
+      { id: 'p4-op3', texto: 'La batería hinchada de un móvil antiguo.', correcta: 2, explicacion: 'Una batería hinchada es peligrosa: al punto limpio (o a la tienda), nunca a la basura normal.' },
+      { id: 'p4-op4', texto: 'Un ordenador que va lento solo porque tiene un disco duro mecánico y poca RAM.', correcta: 1, explicacion: 'Con un SSD y más RAM puede durar varios años más: es mejorarlo, no tirarlo.' },
+      { id: 'p4-op5', texto: 'Una impresora de hace 15 años, sin repuestos ni controladores para los sistemas actuales.', correcta: 2, explicacion: 'Si ya no se puede reparar ni usar, toca reciclarla en un punto limpio para recuperar sus materiales.' },
+    ],
+    hecho: '¡El pozo está en orden! Reto **opcional** completado (+20 de saber).',
   },
 
   // ---------- Sello 1 · Tender la red ----------
@@ -235,6 +275,18 @@ export default {
       texto: '¿Qué significa la «S» de HTTPS?',
       opciones: ['Simple', 'Seguro: la conexión va cifrada', 'Servidor', 'Streaming'], correcta: 1,
       explicacion: 'HTTPS cifra lo que viaja entre tu navegador y la web: nadie en medio puede leerlo.',
+    },
+    {
+      id: 'p4-15', concepto: 'wifiCasa', criterio: '1.2', tipo: 'opcion',
+      texto: '¿Qué tipo de seguridad Wi-Fi está obsoleto y se rompe en minutos?',
+      opciones: ['WPA3', 'WPA2', 'WEP', 'Ninguno: todos son seguros'], correcta: 2,
+      explicacion: 'WEP está roto desde hace años. Hoy lo recomendable es WPA3, o WPA2 si algún aparato no admite otra cosa.',
+    },
+    {
+      id: 'p4-16', concepto: 'raee', criterio: '1.2', tipo: 'opcion',
+      texto: '¿Qué hacemos con un cargador de móvil que ya no funciona?',
+      opciones: ['Tirarlo a la basura orgánica', 'Llevarlo a un punto limpio o a la tienda', 'Tirarlo al contenedor amarillo', 'Guardarlo en un cajón para siempre'], correcta: 1,
+      explicacion: 'Es un RAEE: va al punto limpio o a la tienda para recuperar sus materiales y evitar que contamine.',
     },
   ],
 };

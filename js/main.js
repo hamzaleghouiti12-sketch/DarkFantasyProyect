@@ -17,13 +17,21 @@ import { RUTAS, cargarModelo, cargarPaleta } from './modelos.js';
 import { cargarMazmorra, vestirMazmorra } from './mazmorra.js';
 import { Red, MAX_JUGADORES } from './red.js';
 import { Companero, TINTES, crearEtiqueta, claveCompanero } from './companeros.js';
-import { PERSONAJES, personajeValido, cargarPersonaje, instanciar, configurarVarita } from './personajes.js';
+import { PERSONAJES, personajeValido, cargarPersonaje, instanciar, configurarVarita, ataqueDe } from './personajes.js';
+import { crearAtaques } from './ataques.js';
+import { leerOpciones, abrirOpciones } from './opciones.js';
+import { esTactil, crearTactil } from './tactil.js';
+import { descargarInforme } from './informe.js';
+import GUARDIANES from './contenido/guardianes.js';
+import { crearGuardianes } from './mecanicas/guardianes.js';
 import { Chat } from './chat.js';
 import PISO2 from './contenido/piso2.js';
 import PISO3 from './contenido/piso3.js';
 import PISO4 from './contenido/piso4.js';
 import PISO5 from './contenido/piso5.js';
 import PISO6 from './contenido/piso6.js';
+import PISO7 from './contenido/piso7.js';
+import PISO8 from './contenido/piso8.js';
 
 // Pisos que se construyen al llegar a ellos (carga diferida). El Piso I sigue en world.js.
 const PISOS = {
@@ -32,10 +40,12 @@ const PISOS = {
   piso4: () => import('./pisos/piso4.js'),
   piso5: () => import('./pisos/piso5.js'),
   piso6: () => import('./pisos/piso6.js'),
+  piso7: () => import('./pisos/piso7.js'),
+  piso8: () => import('./pisos/piso8.js'),
 };
 const ORDEN_PISOS = ['piso1', ...Object.keys(PISOS)];
 const siguientePiso = (id) => ORDEN_PISOS[ORDEN_PISOS.indexOf(id) + 1] ?? null;
-const CONTENIDO_PISOS = [PISO2, PISO3, PISO4, PISO5, PISO6];
+const CONTENIDO_PISOS = [PISO2, PISO3, PISO4, PISO5, PISO6, PISO7, PISO8];
 // Todas las lecciones y todas las preguntas de la varita, de todos los pisos
 const LECCIONES = Object.assign({ ...PISO1.lecciones }, ...CONTENIDO_PISOS.map((c) => c.lecciones));
 const CRITERIO_PISO1 = { contrasenas: '3.1', '2fa': '3.3', phishing: '3.3' };
@@ -107,8 +117,34 @@ const player = new Player(scene);
 const aldric = new Hologram(scene);
 aldric.group.visible = false; // aparece cuando se activa el cristal
 const spells = new SpellSystem(scene, fx);
+const ataques = crearAtaques({ escena: scene, fx, sonido: null });
 const ui = new UI();
 const sonido = new Sonido();
+ataques.sonido = sonido;
+
+// ---------- Opciones y accesibilidad (tecla O) ----------
+const opciones = leerOpciones();
+function aplicarOpciones(o) {
+  sonido.ajustarVolumen(o.musica, o.efectos);
+  document.documentElement.style.setProperty('--texto', o.texto); // tamaño del texto de la interfaz
+  if (o.reducirMovimiento) state.shake = 0;
+  ajustarCalidad(o.calidadBaja);
+}
+// calidad baja: resolución 1:1, sombras de 1024 y sin resplandor (bloom)
+const ratioPantalla = () => (opciones.calidadBaja ? 1 : Math.min(devicePixelRatio, 1.75));
+function ajustarCalidad(baja) {
+  bloom.enabled = !baja;
+  const lado = baja ? 1024 : 2048;
+  if (moon.shadow.mapSize.x !== lado) {
+    moon.shadow.mapSize.set(lado, lado);
+    moon.shadow.map?.dispose();
+    moon.shadow.map = null;
+  }
+  renderer.setPixelRatio(ratioPantalla());
+  renderer.setSize(innerWidth, innerHeight);
+  composer.setPixelRatio?.(ratioPantalla());
+  composer.setSize(innerWidth, innerHeight);
+}
 const red = new Red();
 const companeros = new Map(); // id → Companero
 const chat = new Chat((texto) => {
@@ -147,6 +183,7 @@ await Promise.all([
 ]);
 player.mostrarVarita(false);
 
+
 // ---------- Estado ----------
 const state = {
   phase: 'title',
@@ -165,7 +202,9 @@ const state = {
   criterios: {},      // aciertos y fallos por criterio de evaluación (informe)
   historial: {},      // por pregunta: fallos y aciertos seguidos (repaso espaciado)
 };
+aplicarOpciones(opciones);
 const pisos = {};           // pisos ya construidos (id → piso)
+const guardianes = {};      // guardianes que patrullan cada piso (id del piso → guardianes)
 const construyendo = {};    // pisos que se están construyendo (id → promesa)
 const pendientes = [];      // acciones de un piso que llegaron antes de construirlo
 const fraudTotal = PISO1.pergaminos.filter((p) => p.fraude).length;
@@ -187,6 +226,7 @@ function addSaber(n) {
   ui.setSaber(state.saber);
 }
 function record(ok, criterio) {
+  if (ui.silencio) return; // poniéndose al día: no cuenta
   if (ok) { state.aciertos++; addSaber(10); } else state.fallos++;
   if (criterio) {
     const c = (state.criterios[criterio] ??= { a: 0, f: 0 });
@@ -305,6 +345,8 @@ function contextoPiso() {
     runFlow, esperar, accion, record, addSaber,
     refrescarObjetivos: refreshObjectives,
     celebrar: () => { player.celebrar(); aldric.celebrar(); },
+    // una pregunta de repaso de lo aprendido (para desterrar guardianes); null si aún no hay nada
+    preguntaRepaso: () => (BANCO.some((q) => state.learned.has(q.concepto)) ? pickQuestion() : null),
     golpe: () => player.golpe(),
     sacudir: (s) => { state.shake = Math.max(state.shake, s); },
   };
@@ -314,6 +356,7 @@ function asegurarPiso(id) {
   construyendo[id] ??= (async () => {
     const mod = await PISOS[id]();
     const piso = await mod.construir(contextoPiso());
+    await ponerGuardianes(id, piso, mod.ORIGEN);
     pisos[id] = piso;
     zonas[id] = piso.zona;
     piso.zona.grupo.visible = zona === piso.zona;
@@ -329,6 +372,24 @@ function asegurarPiso(id) {
   construyendo[id].catch(() => { delete construyendo[id]; }); // si falla, se puede reintentar
   return construyendo[id];
 }
+// Guardianes de los pisos II a VII (el VIII tiene sus propias criaturas): dan variedad
+// y un repaso opcional. Si no cargan, el piso funciona igual sin ellos.
+async function ponerGuardianes(id, piso, origen) {
+  const lista = GUARDIANES[id];
+  if (!lista || piso.zona.dianas || !origen) return;
+  try {
+    const g = await crearGuardianes(contextoPiso(), { pisoId: id, origen, lista, grupoVisible: () => piso.zona.grupo.visible });
+    guardianes[id] = g;
+    const actualizar = piso.zona.actualizar;
+    Object.assign(piso.zona, {
+      dianas: g.dianas, alApuntar: g.alApuntar, alGolpear: g.alGolpear,
+      actualizar: (dt, t) => { actualizar(dt, t); g.actualizar(dt, t); },
+    });
+  } catch (e) {
+    console.warn(`No se pudieron cargar los guardianes de ${id}.`, e);
+  }
+}
+
 async function subirAPiso(id) {
   guardarProgreso(zona.id);
   ui.toast('Subiendo por la escalera…', 'info', 2400);
@@ -485,6 +546,13 @@ async function useWand() {
     return;
   }
   const target = state.target;
+  // en los pisos con dianas propias (las criaturas del Piso VIII), el piso decide qué pasa
+  if (target && zona.alApuntar) {
+    player.castAnim();
+    await zona.alApuntar(target);
+    state.wandCooldown = 1.2;
+    return;
+  }
   const q = pickQuestion();
   const ok = await ui.quiz(q, `La varita exige un concepto · ${LECCIONES[q.concepto].titulo}`);
   record(ok, q.criterio);
@@ -515,10 +583,12 @@ async function useWand() {
 }
 
 function pickTarget() {
-  if (zona !== world.zona || !state.learned.has('phishing')) return null;
+  // cada piso puede ofrecer sus dianas: { group: { position }, alive, data }
+  const dianas = zona.dianas ? zona.dianas() : zona === world.zona && state.learned.has('phishing') ? world.scrolls : null;
+  if (!dianas) return null;
   camFwd.set(-Math.sin(cam.yaw), 0, -Math.cos(cam.yaw));
   let best = null, bestScore = Infinity;
-  for (const s of world.scrolls) {
+  for (const s of dianas) {
     if (!s.alive || s.released) continue;
     const dx = s.group.position.x - player.pos.x, dz = s.group.position.z - player.pos.z;
     const dist = Math.hypot(dx, dz);
@@ -543,11 +613,13 @@ function claveAccion(tipo, d) {
   if (tipo === 'altar') return world.crystals[d.i]?.ok ? 'altar' : null; // los cristales débiles se pueden probar varias veces
   if (tipo === 'mec') return pisos[d.piso]?.clave(d) ?? null;
   if (tipo === 'subir') return `subir:${d.piso}`;
+  if (tipo === 'guardian') return `guardian:${d.piso}:${d.id}`;
   if (tipo === 'fin') return `fin:${d.piso ?? 'piso1'}`;
   return tipo;
 }
 function valido(tipo, d) {
   if (tipo === 'mec' && !pisos[d.piso]?.validar(d)) return false;
+  if (tipo === 'guardian' && !guardianes[d.piso]?.vivo(d.id)) return false;
   if (tipo === 'altar' && (state.hecho.has('altar') || !world.crystals[d.i])) return false;
   if (tipo === 'pergamino' && !world.scrolls[d.i]?.alive) return false;
   const k = claveAccion(tipo, d);
@@ -563,6 +635,8 @@ function accion(tipo, datos = {}) {
   aplicarEvento(tipo, datos, true);
 }
 function aplicarEvento(tipo, d, soyAutor) {
+  if (entrandoTarde) { colaTarde.push({ tipo, d, soyAutor }); return; }
+  if (red.activa) registro.push({ tipo, d }); // para quien entre a mitad de partida
   const k = claveAccion(tipo, d);
   if (k) state.hecho.add(k);
   switch (tipo) {
@@ -583,6 +657,8 @@ function aplicarEvento(tipo, d, soyAutor) {
       else pendientes.push({ d, soyAutor });
       break;
     case 'subir': runFlow(() => subirAPiso(d.piso)); break;
+    case 'irPiso': runFlow(() => irPorElMapa(d.piso)); break;
+    case 'guardian': guardianes[d.piso]?.desterrar(d.id, soyAutor); break;
     case 'sello':
       runFlow(async () => {
         if (d.clave === 'cartel') {
@@ -599,8 +675,28 @@ function aplicarEvento(tipo, d, soyAutor) {
       refreshObjectives();
       runFlow(() => ui.dialogue(EXTERIOR.comentarios[d.clave]));
       break;
-    case 'fin': finish(); break;
+    case 'fin': runFlow(finish); break; // tras lo que tenga pendiente (p. ej. el duelo con Morvath)
   }
+}
+
+// ---------- Ataques con el arma (tecla R) ----------
+// Cada personaje ataca a su manera (ver personajes.js y ataques.js). Solo afecta a
+// las dianas de la zona (las criaturas del Piso VIII quedan aturdidas).
+let enfriamientoArma = 0;
+function atacar() {
+  if (enfriamientoArma > 0) return;
+  const at = ataqueDe(miPerfil.personaje);
+  enfriamientoArma = at.enfriamiento;
+  camFwd.set(-Math.sin(cam.yaw), 0, -Math.cos(cam.yaw));
+  player.facing = Math.atan2(camFwd.x, camFwd.z); // se gira hacia donde mira la cámara
+  player.atacar(at.anim);
+  ataques.lanzar(at, player.pos, camFwd, zona.dianas?.() ?? [], (d) => zona.alGolpear?.(d, at.tipo));
+  red.enviar({ t: 'ataque', p: miPerfil.personaje, zn: zona.id, x: +player.pos.x.toFixed(2), y: +player.pos.y.toFixed(2), z: +player.pos.z.toFixed(2), dx: +camFwd.x.toFixed(3), dz: +camFwd.z.toFixed(3) });
+}
+function verAtaque(m) {
+  if (m.zn !== zona.id) return;
+  const at = ataqueDe(m.p);
+  ataques.lanzar(at, new THREE.Vector3(m.x, m.y, m.z), new THREE.Vector3(m.dx, 0, m.dz), zona.dianas?.() ?? [], (d) => zona.alGolpear?.(d, at.tipo));
 }
 
 // ---------- Red: mensajes, compañeros y sala ----------
@@ -620,13 +716,73 @@ red.alMensaje = (msg, de) => {
     sonido.mensaje();
   }
   else if (msg.t === 'hechizo') verHechizo(msg);
+  else if (msg.t === 'ataque') verAtaque(msg);
   else if (msg.t === 'acc' && red.esHost) {
     if (!valido(msg.tipo, msg.datos)) return;
     red.enviar({ t: 'ev', tipo: msg.tipo, datos: msg.datos, autor: de });
     aplicarEvento(msg.tipo, msg.datos, false);
   } else if (msg.t === 'ev' && !red.esHost) aplicarEvento(msg.tipo, msg.datos, msg.autor === red.miId);
   else if (msg.t === 'empezar' && !red.esHost) empezarEquipo();
+  else if (msg.t === 'snap' && !red.esHost) entrarTarde(msg);
 };
+
+// ---------- Entrar a mitad de partida (o volver tras caerse) ----------
+// Se puede en los pisos II a VIII: el anfitrión manda el piso en el que está y
+// las acciones aplicadas en él; el que llega las repite en silencio y se une.
+const registro = [];          // acciones aplicadas, en orden
+let entrandoTarde = false;
+const colaTarde = [];         // acciones que llegan mientras se pone al día
+red.motivoNoTarde = () => {
+  if (state.phase === 'end') return 'La partida ya ha terminado.';
+  if (!PISOS[zona.id]) return 'La partida ya ha empezado. Se puede entrar a mitad desde el Piso II.';
+  return null;
+};
+red.alEntrarTarde = (id) => {
+  const eventos = registro.filter((e) => e.d?.piso === zona.id && !['subir', 'fin', 'irPiso'].includes(e.tipo));
+  red.enviarA(id, { t: 'snap', piso: zona.id, eventos, hecho: [...state.hecho] });
+};
+async function entrarTarde(snap) {
+  if (entrandoTarde || state.phase === 'play') return;
+  entrandoTarde = true;
+  ui.hideScreen('screen-sala');
+  salirDeLaSala();
+  document.getElementById('loading').classList.remove('hidden');
+  let piso;
+  try {
+    piso = await asegurarPiso(snap.piso);
+  } catch (e) {
+    console.error(e);
+    location.reload();
+    return;
+  }
+  state.varita = true;
+  player.mostrarVarita(true);
+  aldric.group.visible = true;
+  state.startedAt = performance.now();
+  aplicarZona(piso.zona);
+  colocarEn(piso.zona);
+  // ponerse al día: las acciones del piso, sin diálogos ni avisos
+  ui.silencio = true;
+  entrandoTarde = false;
+  for (const e of snap.eventos) aplicarEvento(e.tipo, e.d, false);
+  while (colaTarde.length) { const e = colaTarde.shift(); aplicarEvento(e.tipo, e.d, e.soyAutor); }
+  // quien se fue llevando algo (un orbe, una obra) lo soltó: se repite aquí también
+  const presentes = new Set(red.jugadores.map((j) => j.id));
+  for (const q of new Set(snap.eventos.map((e) => e.d?.quien).filter(Boolean))) if (!presentes.has(q)) piso.jugadorFuera?.(q);
+  // espera a que terminen las secuencias (algunas encadenan otras)
+  for (let i = 0; i < 60 && (i < 2 || flowDepth > 0); i++) { await runFlow(() => {}); await esperar(100); }
+  ui.silencio = false;
+  for (const k of snap.hecho) state.hecho.add(k);
+  document.getElementById('loading').classList.add('hidden');
+  state.phase = 'play';
+  document.getElementById('hud').classList.remove('hidden');
+  ui.setSaber(state.saber);
+  refreshObjectives();
+  await runFlow(async () => {
+    await piso.intro();
+    await ui.dialogue(['Te has unido a mitad del piso: lo que tu equipo ya ha resuelto sigue resuelto. Mira los **objetivos** y busca a tus compañeros.']);
+  });
+}
 // crea (o rehace, si cambió de personaje o de etiqueta) el compañero de un jugador
 const creando = new Map();
 async function asegurarCompanero(j) {
@@ -897,6 +1053,12 @@ const interactables = [
     action: () => accion('salir'),
   },
   {
+    zona: casa, pos: casa.mapa.pos, r: 1.9,
+    enabled: () => state.casa.cristal && !state.casa.decidido && mapaPisos.length > 0,
+    prompt: () => '**E** · Consultar el **mapa de la torre** (ir a un piso ya desbloqueado)',
+    action: elegirEnMapa,
+  },
+  {
     zona: exterior, pos: exterior.portal.pos, r: 3.2,
     enabled: () => true,
     prompt: () => '**E** · Cruzar el arco y **entrar en la torre**',
@@ -946,6 +1108,11 @@ addEventListener('keydown', (e) => {
     return;
   }
   keys[e.code] = true;
+  if (e.code === 'KeyO' && !e.repeat && !busy() && state.phase !== 'sala') {
+    for (const k in keys) keys[k] = false;
+    abrirOpciones(ui, opciones, aplicarOpciones);
+    return;
+  }
   if (e.code === 'KeyM' && !e.repeat) {
     ui.toast(sonido.alternarSilencio() ? 'Sonido desactivado (M)' : 'Sonido activado (M)', 'info', 1800);
     return;
@@ -953,6 +1120,7 @@ addEventListener('keydown', (e) => {
   if (e.repeat || state.phase !== 'play' || busy()) return;
   if (e.code === 'KeyE' && state.interact) runFlow(state.interact.action);
   else if (e.code === 'KeyF') runFlow(useWand);
+  else if (e.code === 'KeyR') atacar();
   else if (e.code === 'KeyH') runFlow(hint);
   else if (e.code === 'KeyG') ui.openGrimoire(grimEntries());
 });
@@ -960,17 +1128,23 @@ addEventListener('keyup', (e) => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 
 const cam = { yaw: 0, pitch: 0.36, dist: 6.5, target: new THREE.Vector3(0, 1.5, 14) };
-let dragging = false, lastX = 0, lastY = 0;
-canvas.addEventListener('pointerdown', (e) => { dragging = true; lastX = e.clientX; lastY = e.clientY; canvas.setPointerCapture(e.pointerId); });
-canvas.addEventListener('pointerup', () => { dragging = false; });
+let dragging = null, lastX = 0, lastY = 0; // dragging = el dedo o puntero que arrastra
+canvas.addEventListener('pointerdown', (e) => { if (dragging !== null) return; dragging = e.pointerId; lastX = e.clientX; lastY = e.clientY; try { canvas.setPointerCapture(e.pointerId); } catch { /* puntero ya soltado */ } });
+const soltarCamara = (e) => { if (e.pointerId === dragging) dragging = null; };
+canvas.addEventListener('pointerup', soltarCamara);
+canvas.addEventListener('pointercancel', soltarCamara);
 canvas.addEventListener('pointermove', (e) => {
-  if (!dragging || state.phase !== 'play') return;
-  cam.yaw -= (e.clientX - lastX) * 0.006;
-  cam.pitch = Math.max(0.05, Math.min(1.15, cam.pitch + (e.clientY - lastY) * 0.004));
+  if (e.pointerId !== dragging || state.phase !== 'play') return;
+  cam.yaw -= (e.clientX - lastX) * 0.006 * opciones.sensibilidad;
+  cam.pitch = Math.max(0.05, Math.min(1.15, cam.pitch + (e.clientY - lastY) * 0.004 * opciones.sensibilidad * (opciones.invertirY ? -1 : 1)));
   lastX = e.clientX;
   lastY = e.clientY;
 });
 canvas.addEventListener('wheel', (e) => { cam.dist = Math.max(3.2, Math.min(10, cam.dist + e.deltaY * 0.004)); }, { passive: true });
+
+// tabletas: joystick y botones en pantalla (solo con pantalla táctil)
+const tactil = esTactil() ? crearTactil() : null;
+let tactilVisible = null;
 
 const objetivoCam = new THREE.Vector3();
 function updateCamera(dt) {
@@ -992,6 +1166,7 @@ function updateCamera(dt) {
       camera.position.z = c.z + (dz / d) * min;
     }
   }
+  if (opciones.reducirMovimiento) state.shake = 0;
   if (state.shake > 0) {
     state.shake = Math.max(0, state.shake - dt);
     const a = state.shake * 0.25;
@@ -1062,7 +1237,9 @@ function finish() {
   const fin = $('screen-end');
   fin.querySelector('.title-kicker').textContent = `${numero} superado`;
   fin.querySelector('.end-title').textContent = titulo ?? '';
-  fin.querySelector('.title-sub').innerHTML = 'La escalera sigue subiendo. <strong>El siguiente piso</strong>, próximamente.';
+  fin.querySelector('.title-sub').innerHTML = zona.id === 'piso8'
+    ? 'La proyección de Morvath se ha desvanecido, pero la torre sigue en pie. <strong>Lo que hay más arriba</strong>, próximamente.'
+    : 'La escalera sigue subiendo. <strong>El siguiente piso</strong>, próximamente.';
   const porCriterio = Object.entries(state.criterios).sort().map(([k, v]) => [`Criterio ${k}`, `${Math.round((v.a / Math.max(1, v.a + v.f)) * 100)}%`]);
   ui.showEnd([
     ['Saber', state.saber],
@@ -1103,11 +1280,57 @@ async function continuarEnPiso(id) {
   await ui.fundido(false);
   await runFlow(() => piso.intro());
 }
-{
+// pisos con carga diferida cuyo anterior ya está superado (con ?docente=1, todos)
+function pisosDisponibles() {
   const hechos = leerProgreso().pisos;
   const docente = new URLSearchParams(location.search).has('docente');
-  // el primer piso con carga diferida cuyo anterior ya está superado (con ?docente=1, el último)
-  const disponibles = Object.keys(PISOS).filter((id) => docente || hechos[ORDEN_PISOS[ORDEN_PISOS.indexOf(id) - 1]]?.completado);
+  return Object.keys(PISOS).filter((id) => docente || hechos[ORDEN_PISOS[ORDEN_PISOS.indexOf(id) - 1]]?.completado);
+}
+const mapaPisos = pisosDisponibles(); // se calcula al cargar: el progreso no cambia estando en la casa
+casa.mostrarMapa(mapaPisos.length > 0);
+
+// ---------- El mapa de la torre (en la casa): ir a un piso ya desbloqueado ----------
+// En equipo solo elige el anfitrión (con su progreso); todos van con él.
+async function elegirEnMapa() {
+  if (red.activa && !red.esHost) {
+    await ui.dialogue(['En el mapa solo elige quien creó la sala (el **anfitrión**). Si os lo saltáis, seguid la historia desde aquí.']);
+    return;
+  }
+  sonido.clic();
+  const nombre = (id) => CONTENIDO_PISOS.find((c) => c.id === id)?.nombre ?? id;
+  const elegido = await ui.story(
+    ['**El mapa de la torre.** Los pisos que ya habéis superado brillan: podéis subir directamente al siguiente o repasar uno anterior. Para entrar en el Piso I, seguid la historia.'],
+    [...mapaPisos.map((id) => ({ id, texto: nombre(id) })), { id: 'nada', texto: 'Cerrar el mapa' }],
+  );
+  ui.hideScreen('screen-story');
+  if (elegido !== 'nada') accion('irPiso', { piso: elegido });
+}
+async function irPorElMapa(id) {
+  state.casa.decidido = true;
+  let piso;
+  try {
+    piso = await asegurarPiso(id);
+  } catch (e) {
+    console.error(e);
+    ui.toast('No se pudo cargar ese piso. Revisa la conexión y recarga la página.', 'bad', 8000);
+    state.casa.decidido = false;
+    return;
+  }
+  state.varita = true;
+  player.mostrarVarita(true);
+  ui.toast('Aldric os presta su **varita** (F)', 'learn', 3600);
+  sonido.teletransporte();
+  await irA(id);
+  state.startedAt = performance.now();
+  const otro = siguientePiso(id);
+  if (otro && PISOS[otro]) asegurarPiso(otro).catch(() => {});
+  await piso.intro();
+  refreshObjectives();
+}
+{
+  const hechos = leerProgreso().pisos;
+  const disponibles = pisosDisponibles();
+  // el primer piso disponible sin superar (o el último)
   const destino = disponibles.find((id) => !hechos[id]?.completado) ?? disponibles[disponibles.length - 1];
   if (destino) {
     const boton = $('btn-continuar');
@@ -1118,11 +1341,45 @@ async function continuarEnPiso(id) {
 }
 document.getElementById('btn-replay').onclick = () => location.reload();
 
+// ---------- Informe para el profesor (página HTML descargable) ----------
+async function informe() {
+  sonido.iniciar();
+  let alumno = leer('torreMorvathNombre');
+  const v = await ui.formulario('¿A nombre de quién va el informe?', 'Informe para el profesor', [{ id: 'nombre', etiqueta: 'Nombre y apellidos', valor: alumno, ayuda: 'Nombre Apellido' }], (d) => (d.nombre ? {} : { nombre: 'Escribe tu nombre.' }));
+  if (!v) return;
+  alumno = v.nombre.slice(0, 60);
+  try { localStorage.setItem('torreMorvathNombre', alumno); } catch { /* sin almacenamiento local */ }
+  descargarInforme({
+    alumno,
+    fecha: new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }),
+    pisos: [PISO1, ...CONTENIDO_PISOS].map((c, i) => ({ id: ORDEN_PISOS[i], nombre: c.nombre })),
+    progreso: leerProgreso(),
+  });
+  ui.toast('Informe descargado: ábrelo con el navegador para verlo o imprimirlo.', 'info', 5000);
+}
+document.getElementById('btn-informe-fin').onclick = informe;
+if (Object.keys(leerProgreso().pisos).length) {
+  $('btn-informe').classList.remove('hidden');
+  $('btn-informe').onclick = informe;
+}
+
 // ---------- Bucle ----------
 let last = performance.now();
+// si los primeros 8 s de juego van a menos de 28 fotogramas por segundo, se sugiere la calidad baja (una vez)
+const medidaFps = { t: 0, n: 0, hecho: false };
+function vigilarFps(dt) {
+  if (medidaFps.hecho || opciones.calidadBaja || state.phase !== 'play' || document.hidden) return;
+  medidaFps.t += dt;
+  medidaFps.n++;
+  if (medidaFps.t < 8) return;
+  medidaFps.hecho = true;
+  if (medidaFps.n / medidaFps.t < 28) ui.toast(`El juego va lento en este equipo: ${tactil ? 'toca ⚙' : 'pulsa O'} y activa «Calidad baja».`, 'info', 7000);
+}
+
 function frame(now) {
   const dt = Math.min((now - last) / 1000, 0.05);
   last = now;
+  vigilarFps(dt);
   tick(dt, now / 1000);
   composer.render();
   requestAnimationFrame(frame);
@@ -1138,7 +1395,14 @@ function tick(dt, t) {
     if (keys.KeyD || keys.ArrowRight) ix += 1;
     if (keys.KeyA || keys.ArrowLeft) ix -= 1;
   }
-  const correr = control && (keys.ShiftLeft || keys.ShiftRight);
+  if (tactil) {
+    if (control) { ix += tactil.eje.x; iz += tactil.eje.z; }
+    if (tactilVisible !== control) { tactilVisible = control; tactil.mostrar(control); tactil.chat(red.activa); }
+  }
+  const correr = control && (keys.ShiftLeft || keys.ShiftRight || tactil?.eje.correr);
+  // girar la cámara con el teclado (para jugar sin ratón)
+  if (control && keys.KeyJ) cam.yaw += dt * 2.2 * opciones.sensibilidad;
+  if (control && keys.KeyL) cam.yaw -= dt * 2.2 * opciones.sensibilidad;
   player.update(dt, { x: ix, z: iz, run: correr, jump: control && keys.Space }, cam.yaw, zona, t);
   if (aldric.group.visible) aldric.update(dt, t, player, camera, ui.open.dialogue, zona);
 
@@ -1172,6 +1436,8 @@ function tick(dt, t) {
     world.update(dt, t, camera);
   }
   spells.update(dt);
+  ataques.update(dt);
+  if (enfriamientoArma > 0) enfriamientoArma = Math.max(0, enfriamientoArma - dt);
   fx.small.update(dt);
   fx.big.update(dt);
   for (const c of companeros.values()) c.update(dt);
@@ -1243,7 +1509,7 @@ requestAnimationFrame(frame);
 // aunque la pestaña esté en segundo plano
 let simT = 0;
 window.__torre = {
-  state, player, world, casa, exterior, cam, ui, keys, sonido, aldric, red, companeros, pisos, renderer,
+  state, player, world, casa, exterior, cam, ui, keys, sonido, aldric, red, companeros, pisos, renderer, accion,
   get zona() { return zona; },
   // ir a una zona sin fundido (los pisos con carga diferida se construyen antes)
   async irA(id) {
@@ -1264,7 +1530,7 @@ window.__torre = {
     camera.updateProjectionMatrix();
     composer.render();
     const url = canvas.toDataURL('image/jpeg', 0.9);
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
+    renderer.setPixelRatio(ratioPantalla());
     renderer.setSize(innerWidth, innerHeight);
     composer.setSize(innerWidth, innerHeight);
     camera.aspect = innerWidth / innerHeight;
