@@ -23,6 +23,7 @@ export async function construir(ctx) {
   const { ui, sonido, fx, estado } = ctx;
   const piezas = await cargarPiezasTorre(ctx.paletas.mazmorra, [...PIEZAS_BASE, ...EXTRA]);
   const sala = crearSalaDeTorre({
+    ambiente: { color: 0xf2d9a0, cada: 0.07, brillo: 0.5, vida: 7 },
     escena: ctx.escena, origen: ORIGEN, piezas, fx, semilla: 77, cielo: [0.2, 0.24, 0.5],
     estandartes: { normal: 'banner_blue', escudo: 'banner_shield_blue', fino: 'banner_thin_blue' },
   });
@@ -235,10 +236,17 @@ export async function construir(ctx) {
     if (!est.sellos.buscador) return C.pistas.buscador;
     return C.pistas.puerta;
   }
+  // a dónde apunta la guía de la misión actual (main.js la dibuja)
+  function destino() {
+    if (!est.sellos.licencias) return aMundo(MESA.x, 0, MESA.z);
+    if (!est.sellos.pregones) return aMundo(TABLON.x, 0, TABLON.z);
+    if (!est.sellos.buscador) return aMundo(BUSCADOR.x, 0, BUSCADOR.z);
+    return 'salida';
+  }
 
   Object.assign(zona, {
     id: P, nombre: C.nombre, musica: 'scriptorium', pisada: 'madera',
-    actualizar, objetivos, pista,
+    actualizar, objetivos, pista, destino,
     salida: { abierta: () => S.estado.puerta, z: sala.salidaZ, accion: ['subir', { piso: 'piso8' }] },
   });
   zona.grupo.visible = false;

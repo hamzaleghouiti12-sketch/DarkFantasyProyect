@@ -33,6 +33,19 @@ Lo hecho desde que se redactó este plan (léelo antes que el resto):
   - Tras activar el cristal, **E** abre la lista y la acción `irPiso` lleva a todo el equipo (da la varita, salta el exterior y el Piso I).
   - En equipo solo elige el anfitrión, con su progreso; los demás reciben un aviso. `irPiso` no se repite al entrar a mitad de partida.
   - Probado solo: del mapa al Piso III.
+- **Misiones claras (2026-10-03):** el panel de la misión muestra arriba **Ahora** (la primera sin hacer), el **Cómo** (la misma pista que H, `textoPista()`) y debajo la lista del piso. Una **guía en pantalla** (rombo ◆ con la distancia; flecha pegada al borde si queda fuera de la vista) apunta a `destinoActual()`: cada piso define `destino()` con el punto del sello que toca, o `'salida'` para la escalera. Casa, exterior y Piso I los calcula `main.js`.
+- **Cinemáticas (`js/cinematica.js`, 2026-10-03):** mientras `cine.activa`, `tick()` solo llama a `cine.update()` (cámara por planos con `encuadre()`, actores con `Animador`, luz de relleno que sigue al encuadre). Bandas negras, subtítulos con nombre, rótulos; E/Espacio/clic pasan, **Esc salta** (fundidos instantáneos al saltar). Textos en `content.js` (`CINE_INICIO`, `CINE_TORRE`).
+  - **Inicio** (sustituye a las páginas del prólogo): parque al atardecer en (800, 0, 0) con paletas claras → portal de runas bajo los cuatro amigos (Leo, Nayra, Dani y Aitor = encapuchado, pícara, caballero y bárbaro) → túnel violeta → salen por el portal de la casa → **Aldric de verdad** (aldric.glb sin holograma) furioso y luego curioso → montaje de los días siguientes → la noche del destello rojo → «La tercera mañana…». Corre dentro de `runFlow`, así que en equipo las acciones de otros esperan a que termine.
+  - **Vista de la torre** al salir de la casa (relámpago y luz roja en la cima) y **rótulo de capítulo** («Piso II · La Bóveda…») en negro al entrar en cada piso (`irA(id, titulo)`).
+  - Ojo al probar: en el panel del navegador en segundo plano no se dibujan fotogramas; usar `__torre.step(n)` y `__torre.cine`.
+- **Base de datos:** propuesta en `ContextWindow/PLAN_SUPABASE.md` (no implementada).
+- **Fluidez entre misiones (2026-10-03):**
+  - al romper un sello, aviso grande «✦ Sello roto · n de 3» con **Siguiente: …** (`ui.anunciarSello`, desde `crearSellos` y el Piso I);
+  - al abrirse la puerta, la cámara la enseña 2,8 s (`mostrarSalida()` → `cine.mostrar(desde, mirarA, s)`);
+  - al llegar a un piso: rótulo de capítulo + plano desde lo alto de la sala (`presentarSala()`) antes de la intro;
+  - en el Piso VIII, plano de la aparición de Morvath antes del duelo (`ctx.mostrar`).
+  - Nada de esto se ejecuta con `ui.silencio` (al ponerse al día quien entra a mitad).
+- **Gráficos (2026-10-03):** haces de luz suaves en las ventanas de las salas de torre (+~40 llamadas; Piso II: 235), viñeta CSS (`#vineta`), polvo al correr y al aterrizar, filtro de flashback en los diálogos «Recuerdo de la torre» (`body.recuerdo`) y etiquetas flotantes que se desvanecen si la cámara está a menos de ~2 m (`atenuarEtiquetas()`).
 - **Pendiente de la Fase 0:**
   - Migrar el Piso I a `crearSalaDeTorre`; hoy sigue en `world.js` + `mazmorra.js`.
   - Extraer `nucleo/` de `main.js`.

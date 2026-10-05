@@ -19,11 +19,13 @@
 </head>
 <body>
   <canvas id="game"></canvas>
+  <div id="vineta" aria-hidden="true"></div>
 
   <div id="hud" class="hidden">
     <div id="hud-objectives" class="panel">
       <div class="floor-name">Piso I · La Cámara de los Sellos</div>
       <div id="equipo" class="equipo hidden"></div>
+      <div id="mision-ahora"></div>
       <ul id="objectives"></ul>
     </div>
     <div id="hud-stats" class="panel">
@@ -37,6 +39,7 @@
       <div class="scroll-hint"><b>F</b> · usar la varita sobre este pergamino</div>
     </div>
     <div id="prompt" class="hidden"></div>
+    <div id="guia" class="hidden" aria-hidden="true"><span class="guia-rombo">◆</span><span class="guia-flecha">➤</span><span class="guia-dist"></span></div>
     <div id="controls" class="panel">
       <span><b>WASD</b> mover</span><span><b>Arrastrar</b> cámara</span><span><b>Shift</b> correr</span><span><b>Espacio</b> saltar</span>
       <span><b>E</b> interactuar</span><span><b>F</b> varita</span><span><b>R</b> atacar</span><span><b>J L</b> girar cámara</span><span><b>O</b> opciones</span><span><b>G</b> grimorio</span><span><b>H</b> pista</span><span><b>M</b> sonido</span>

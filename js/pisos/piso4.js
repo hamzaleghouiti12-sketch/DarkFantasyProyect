@@ -530,6 +530,13 @@ export async function construir(ctx) {
       if (!est.sellos.terminal) return C.pistas.terminal;
       return C.pistas.puerta;
     },
+    // a dónde apunta la guía de la misión actual
+    destino() {
+      if (!est.sellos.red) return aMundo(rx, 0, rz);
+      if (!est.sellos.oraculo) return aMundo(ORACULO.x, 0, ORACULO.z);
+      if (!est.sellos.terminal) return aMundo(VIGIA.x, 0, VIGIA.z);
+      return 'salida';
+    },
     salida: { abierta: () => S.estado.puerta, z: oz + C.salida.pos[1] - 1.8, accion: ['subir', { piso: 'piso5' }] },
   });
   grupo.visible = false;

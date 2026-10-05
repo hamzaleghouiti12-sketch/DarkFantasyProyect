@@ -41,6 +41,7 @@ export async function construir(ctx) {
   ]);
   const plantilla = Object.fromEntries(Object.keys(MODELO).map((k, i) => [k, plantillasMalware[i]]));
   const sala = crearSalaDeTorre({
+    ambiente: { color: 0x7dff9a, cada: 0.05, brillo: 0.6, sube: 0.25, vida: 4.5 },
     escena: ctx.escena, origen: ORIGEN, piezas: { ...piezas, ...tumbas }, fx, semilla: 88, cielo: [0.2, 0.4, 0.28],
     estandartes: { normal: 'banner_green', escudo: 'banner_shield_green', fino: 'banner_thin_green' },
   });
@@ -79,6 +80,9 @@ export async function construir(ctx) {
     await montarMorvath();
     sonido.teletransporte();
     ctx.sacudir(0.6);
+    // la proyección aparece: plano corto hacia ella antes de que hable
+    const m = morvath.group.position;
+    await ctx.mostrar?.(new THREE.Vector3(m.x + 2.6, 2.0, m.z + 5.5), new THREE.Vector3(m.x, 2.3, m.z), 2.4);
     await ui.dialogue(C.jefe.aparicion, 'Morvath');
     await ui.dialogue(C.jefe.aldricAviso);
     const preguntas = C.jefe.preguntas.map((id) => TODAS.find((q) => q.id === id)).filter(Boolean);
@@ -442,10 +446,17 @@ export async function construir(ctx) {
     if (!est.sellos.triada) return C.pistas.triada;
     return C.pistas.puerta;
   }
+  // a dónde apunta la guía de la misión actual (main.js la dibuja)
+  function destino() {
+    if (!est.sellos.bestiario) return zona.dianas?.().find((d) => d.alive)?.group.position ?? aMundo(0, 0, 0);
+    if (!est.sellos.muralla) return aMundo(MURALLA.x, 0, MURALLA.z);
+    if (!est.sellos.triada) return aMundo(TRIADA.x, 0, TRIADA.z);
+    return 'salida';
+  }
 
   Object.assign(zona, {
     id: P, nombre: C.nombre, musica: 'criptas',
-    actualizar, objetivos, pista,
+    actualizar, objetivos, pista, destino,
     dianas: () => bichos.filter((b) => b.alive && b.g.visible),
     alApuntar: apuntar,
     // un golpe de arma aturde a la criatura unos segundos: más fácil apuntarle con la varita

@@ -15,6 +15,46 @@ export const PROLOGO = {
   ],
 };
 
+// Cinemática de inicio (js/cinematica.js): los cuatro amigos, el portal y Aldric.
+// Cada línea: [quién, texto]. Los nombres de los chicos van con sus personajes.
+export const CINE_INICIO = {
+  amigos: { encapuchado: 'Leo', picaro: 'Nayra', caballero: 'Dani', barbaro: 'Aitor' },
+  parque: [
+    ['Nayra', '¿Habéis terminado el trabajo de Informática?'],
+    ['Aitor', 'Ni lo he empezado. ¿Para qué quiero saber lo que es un byte?'],
+    ['Dani', 'Para no llorar cuando se te rompa el móvil y pierdas todas las fotos, listo.'],
+    ['Leo', 'Eh… ¿lo oís? Es como un zumbido…'],
+  ],
+  portal: [
+    ['Nayra', '¡¿Qué es eso?! ¡El suelo está brillando!'],
+    ['Aitor', '¡Agarraos a algo!'],
+  ],
+  llegada: [
+    ['Aldric', '¡No, no, NO! ¡Tres lunas calibrando el portal… y en vez de abrirse a otro mundo me escupe críos!'],
+    ['Aldric', '¡Mis cristales! ¡Mis cálculos! ¡Todo perdido!'],
+    ['Aldric', '…Un momento.'],
+    ['Aldric', 'Esas ropas… Ese ladrillo que brilla en vuestra mano… ¿De dónde habéis salido?'],
+    ['Dani', 'Es… es un móvil. ¿Dónde estamos? ¿Quién es usted?'],
+    ['Aldric', 'Aldric, mago e inventor. Estáis en Umbravel. ¡Y vosotros venís del otro lado del portal! Fascinante…'],
+    ['Nayra', '¿Puede devolvernos a casa?'],
+    ['Aldric', 'Puedo intentarlo. Pero el portal tardará días en recargarse. Mientras tanto… sois mis invitados.'],
+  ],
+  rotuloDias: 'Los días siguientes…',
+  dias: [
+    ['Aldric', '¿Una palabra secreta que protege toda vuestra memoria? ¡Eso es un sello mágico!'],
+    ['Leo', 'Bueno… lo llamamos contraseña. Y mejor que sea larga.'],
+    ['Aldric', '¿Y vuestras «redes» unen a millones de personas a la vez? ¡No conozco hechizo más poderoso!'],
+  ],
+  rotuloNoche: 'La segunda noche…',
+  rotuloFinal: 'La tercera mañana, Aldric no bajó a desayunar. Su bastón seguía junto a la puerta. Y sobre la mesa del taller, algo brillaba.',
+};
+
+// Cinemática corta: la primera vez que se ve la torre desde el camino
+export const CINE_TORRE = [
+  ['Aldric (holograma)', 'Ahí está: la torre de Morvath. Cada piso guarda un saber que él ha robado, protegido por tres sellos.'],
+  ['Aldric (holograma)', 'Yo estoy en lo más alto. Seguid el camino hasta el arco… y no os separéis.'],
+];
+
 // La casa de Aldric: primera zona jugable
 export const CASA = {
   nombre: 'La casa de Aldric · El taller',

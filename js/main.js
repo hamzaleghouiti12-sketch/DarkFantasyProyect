@@ -22,6 +22,7 @@ import { crearAtaques } from './ataques.js';
 import { leerOpciones, abrirOpciones } from './opciones.js';
 import { esTactil, crearTactil } from './tactil.js';
 import { descargarInforme } from './informe.js';
+import { crearCine } from './cinematica.js';
 import GUARDIANES from './contenido/guardianes.js';
 import { crearGuardianes } from './mecanicas/guardianes.js';
 import { Chat } from './chat.js';
@@ -183,6 +184,9 @@ await Promise.all([
 ]);
 player.mostrarVarita(false);
 
+// ---------- Cinemáticas (js/cinematica.js): mientras hay una, ella maneja la cámara ----------
+const cine = crearCine({ escena: scene, camara: camera, sonido, fx, ui, luna: moon, cielo: hemi, casa, ponerZona: (z) => aplicarZona(z), paletaMago: paletas.mago });
+
 
 // ---------- Estado ----------
 const state = {
@@ -255,7 +259,26 @@ function refreshObjectives() {
     ];
     if (state.doorOpen) items.push({ text: 'Cruza la puerta del norte', done: false });
   }
-  ui.setObjectives(items);
+  ui.setObjectives(items, textoPista());
+  return items;
+}
+// sello roto: aviso con lo que toca después (la misión "Ahora" ya actualizada)
+function anunciarSello(n, total) {
+  const items = refreshObjectives();
+  const siguiente = n < total ? items.find((o) => !o.done)?.text : 'La puerta se está abriendo…';
+  ui.anunciarSello(n, total, siguiente);
+}
+// al llegar a un piso, un plano desde lo alto de la sala (para orientarse)
+async function presentarSala() {
+  if (ui.silencio || !zona.entrada) return;
+  const e = zona.entrada.pos;
+  await cine.mostrar(new THREE.Vector3(e.x + 6, 9, e.z + 4), new THREE.Vector3(e.x, 1, e.z - 16), 2.6);
+}
+// al abrirse la puerta de un piso, la cámara la enseña un momento (sabéis a dónde ir)
+async function mostrarSalida() {
+  if (ui.silencio || !zona.salida) return;
+  const x = zona.entrada.pos.x, z = zona.salida.z;
+  await cine.mostrar(new THREE.Vector3(x + 3.5, 4.2, z + 11), new THREE.Vector3(x, 1.8, z + 1.5), 2.8);
 }
 
 // ---------- Cambiar de zona (con fundido a negro) ----------
@@ -283,8 +306,10 @@ function colocarEn(z) {
   cam.target.set(player.pos.x, player.pos.y + 1.5, player.pos.z);
   aldric.group.position.set(player.pos.x - 1.4, 0, player.pos.z - 0.6);
 }
-async function irA(id) {
+// titulo: si se pasa, se muestra el rótulo del capítulo (el nombre del piso) en negro
+async function irA(id, titulo = null) {
   await ui.fundido(true);
+  if (titulo) await cine.titulo(titulo);
   aplicarZona(zonas[id]);
   colocarEn(zonas[id]);
   await esperar(250);
@@ -323,14 +348,22 @@ async function elegirPuerta() {
   sonido.puerta();
   await esperar(1300);
   sonido.teletransporte();
-  await irA('exterior');
+  await ui.fundido(true);
+  aplicarZona(exterior);
+  colocarEn(exterior);
+  // la primera vista de la torre (cinemática corta, se puede saltar)
+  player.group.visible = false;
+  await cine.vistaTorre(exterior.lugares, player.pos);
+  player.group.visible = true;
+  updateCamera(1);
+  await ui.fundido(false);
   await ui.dialogue(EXTERIOR.llegada);
 }
 
 // ---------- Exterior ----------
 async function entrarTorre() {
   sonido.teletransporte();
-  await irA('piso1');
+  await irA('piso1', PISO1.nombre);
   state.startedAt = performance.now();
   asegurarPiso('piso2').catch(() => {}); // se va preparando mientras se juega el Piso I
   await ui.dialogue(PISO1.intro);
@@ -349,6 +382,9 @@ function contextoPiso() {
     preguntaRepaso: () => (BANCO.some((q) => state.learned.has(q.concepto)) ? pickQuestion() : null),
     golpe: () => player.golpe(),
     sacudir: (s) => { state.shake = Math.max(state.shake, s); },
+    anunciarSello,
+    mostrarSalida,
+    mostrar: (desde, mirar, seg) => (ui.silencio ? Promise.resolve() : cine.mostrar(desde, mirar, seg)),
   };
 }
 function asegurarPiso(id) {
@@ -402,9 +438,10 @@ async function subirAPiso(id) {
     return;
   }
   sonido.teletransporte();
-  await irA(id);
+  await irA(id, zonas[id].nombre);
   const otro = siguientePiso(id);
   if (otro && PISOS[otro]) asegurarPiso(otro).catch(() => {}); // se va preparando el siguiente
+  await presentarSala();
   await piso.intro();
   refreshObjectives();
 }
@@ -430,8 +467,7 @@ async function breakSeal(key) {
   player.celebrar();
   aldric.celebrar();
   const n = Object.values(state.seals).filter(Boolean).length;
-  ui.toast(`✦ Sello roto (${n}/3)`, 'seal', 3600);
-  refreshObjectives();
+  anunciarSello(n, 3);
   if (n === 3) {
     await ui.dialogue(PISO1.sellosRotos);
     world.openDoor();
@@ -439,6 +475,7 @@ async function breakSeal(key) {
     state.doorOpen = true;
     state.shake = 0.8;
     refreshObjectives();
+    await mostrarSalida();
   }
 }
 
@@ -1016,19 +1053,37 @@ $('btn-sala-volver').onclick = () => {
 };
 
 // ---------- Pistas y grimorio ----------
+// Qué hacer ahora, en palabras (la misma pista de Aldric con H)
+function textoPista() {
+  if (zona === casa) return !state.casa.cristal ? CASA.pistas.cristal : CASA.pistas.decidir;
+  if (zona === exterior) return player.pos.distanceTo(exterior.lugares.arco) < 22 ? EXTERIOR.pistas.arco : EXTERIOR.pistas.camino;
+  if (zona.pista) return zona.pista();
+  if (zona !== world.zona) return '';
+  const s = state.seals;
+  return PISO1.pistas[!s.cartel ? 'cartel' : !s.altar ? 'altar' : !s.pergaminos ? 'pergaminos' : 'puerta'];
+}
 async function hint() {
-  if (zona === casa) {
-    await ui.dialogue([!state.casa.cristal ? CASA.pistas.cristal : CASA.pistas.decidir]);
-  } else if (zona === exterior) {
-    const cerca = player.pos.distanceTo(exterior.lugares.arco) < 22;
-    await ui.dialogue([cerca ? EXTERIOR.pistas.arco : EXTERIOR.pistas.camino]);
-  } else if (zona.pista) {
-    await ui.dialogue([zona.pista()]);
-  } else {
+  await ui.dialogue([textoPista()]);
+}
+// A dónde apunta la guía de la misión (un punto del mundo) o null
+const puntoSalida = new THREE.Vector3();
+function destinoActual() {
+  let d = null;
+  if (zona === casa) d = !state.casa.cristal ? casa.cristal.pos : !state.casa.decidido ? casa.puerta.pos : null;
+  else if (zona === exterior) d = exterior.lugares.arco;
+  else if (zona.destino) d = zona.destino();
+  else if (zona === world.zona) {
     const s = state.seals;
-    const key = !s.cartel ? 'cartel' : !s.altar ? 'altar' : !s.pergaminos ? 'pergaminos' : 'puerta';
-    await ui.dialogue([PISO1.pistas[key]]);
+    if (!s.cartel) d = world.sign.pos;
+    else if (!s.altar) d = world.altar.center;
+    else if (!s.pergaminos) d = world.scrolls.find((x) => x.alive && x.data.fraude)?.group.position ?? null;
+    else d = 'salida';
   }
+  if (d === 'salida') {
+    if (!zona.salida?.abierta()) return null;
+    return puntoSalida.set(zona.entrada.pos.x, 0, zona.salida.z + 1.5);
+  }
+  return d;
 }
 const grimEntries = () => [...state.learned].map((id) => LECCIONES[id]);
 
@@ -1100,6 +1155,7 @@ addEventListener('keydown', (e) => {
   if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return; // escribiendo en un campo
   if (['Space', 'ArrowUp', 'ArrowDown', 'Tab'].includes(e.code)) e.preventDefault();
   sonido.iniciar();
+  if (cine.tecla(e)) { e.preventDefault(); return; }
   if (ui.handleKey(e)) return;
   if (red.activa && !e.repeat && (e.code === 'KeyT' || (e.code === 'Enter' && state.phase === 'play'))) {
     e.preventDefault();
@@ -1146,6 +1202,50 @@ canvas.addEventListener('wheel', (e) => { cam.dist = Math.max(3.2, Math.min(10, 
 const tactil = esTactil() ? crearTactil() : null;
 let tactilVisible = null;
 
+// ---------- Etiquetas flotantes: se desvanecen si la cámara las tiene encima ----------
+// (si no, un rótulo como «Tarjeta SD» llena la pantalla al pasar a su lado)
+let relojEtiquetas = 0;
+function atenuarEtiquetas(dt) {
+  relojEtiquetas -= dt;
+  if (relojEtiquetas > 0 || !zona.grupo) return;
+  relojEtiquetas = 0.12;
+  if (!zona.etiquetas) {
+    zona.etiquetas = [];
+    zona.grupo.traverse((o) => { if (o.isSprite && o.material.map && o.material.transparent) zona.etiquetas.push({ s: o, base: o.material.opacity }); });
+  }
+  const pos = new THREE.Vector3();
+  for (const e of zona.etiquetas) {
+    const d = camera.position.distanceTo(e.s.getWorldPosition(pos));
+    e.s.material.opacity = e.base * Math.min(1, Math.max(0, (d - 1.6) / 2.2));
+  }
+}
+
+// ---------- Guía de la misión: un rombo en pantalla sobre el sitio al que ir ----------
+// Si el sitio queda fuera de la vista, se pega al borde con una flecha que señala hacia él.
+const guia = { el: document.getElementById('guia'), punto: new THREE.Vector3(), visible: false };
+guia.flecha = guia.el.querySelector('.guia-flecha');
+guia.dist = guia.el.querySelector('.guia-dist');
+function pintarGuia() {
+  const destino = state.phase === 'play' && !busy() ? destinoActual() : null;
+  const d = destino ? Math.hypot(destino.x - player.pos.x, destino.z - player.pos.z) : 0;
+  const mostrar = Boolean(destino) && d > 3.2;
+  if (mostrar !== guia.visible) { guia.visible = mostrar; guia.el.classList.toggle('hidden', !mostrar); }
+  if (!mostrar) return;
+  const p = guia.punto.set(destino.x, (destino.y || 0) + 2.2, destino.z).project(camera);
+  const detras = p.z > 1;
+  let x = p.x, y = p.y;
+  if (detras) { x = -x; y = -y; }
+  const fuera = detras || Math.abs(x) > 0.92 || Math.abs(y) > 0.88;
+  if (fuera) {
+    const k = 1 / Math.max(Math.abs(x) / 0.92, Math.abs(y) / 0.88, 1e-6);
+    x *= k; y *= k;
+  }
+  guia.el.style.transform = `translate(${((x + 1) / 2) * innerWidth}px, ${((1 - y) / 2) * innerHeight}px)`;
+  guia.el.classList.toggle('fuera', fuera);
+  if (fuera) guia.flecha.style.transform = `rotate(${Math.atan2(-y, x)}rad)`;
+  guia.dist.textContent = `${Math.round(d)} m`;
+}
+
 const objetivoCam = new THREE.Vector3();
 function updateCamera(dt) {
   cam.target.lerp(objetivoCam.set(player.pos.x, player.pos.y + 1.5, player.pos.z), 1 - Math.exp(-dt * 10));
@@ -1180,9 +1280,12 @@ function updateCamera(dt) {
 async function startStory() {
   sonido.iniciar();
   sonido.clic();
-  ui.hideScreen('screen-title');
-  await ui.story(PROLOGO.paginas, [{ id: 'empezar', texto: 'Bajar al taller' }]);
   await ui.fundido(true);
+  ui.hideScreen('screen-title');
+  // la cinemática de inicio: el parque, el portal y la llegada a casa de Aldric
+  player.group.visible = false;
+  await runFlow(() => cine.inicio());
+  player.group.visible = true;
   ui.hideScreen('screen-story');
   aplicarZona(casa);
   colocarEn(casa);
@@ -1320,10 +1423,11 @@ async function irPorElMapa(id) {
   player.mostrarVarita(true);
   ui.toast('Aldric os presta su **varita** (F)', 'learn', 3600);
   sonido.teletransporte();
-  await irA(id);
+  await irA(id, zonas[id].nombre);
   state.startedAt = performance.now();
   const otro = siguientePiso(id);
   if (otro && PISOS[otro]) asegurarPiso(otro).catch(() => {});
+  await presentarSala();
   await piso.intro();
   refreshObjectives();
 }
@@ -1386,6 +1490,13 @@ function frame(now) {
 }
 
 function tick(dt, t) {
+  if (cine.activa) {
+    cine.update(dt, t);
+    if (zona === casa) casa.update(dt, t, fx);
+    fx.small.update(dt);
+    fx.big.update(dt);
+    return;
+  }
   const control = state.phase === 'play' && !busy();
 
   let ix = 0, iz = 0;
@@ -1416,7 +1527,18 @@ function tick(dt, t) {
     }
   }
   if (player.saltoAhora) sonido.salto();
-  if (player.aterrizaje) sonido.aterrizaje();
+  if (player.aterrizaje) {
+    sonido.aterrizaje();
+    fx.big.emit(player.pos.clone().setY(0.15), { count: 14, color: zona.pisada === 'hierba' ? 0x6f7a4a : 0x9a8a78, intensity: 0.7, speed: 1.8, life: 0.55, gravity: 3 });
+  }
+  // polvo al correr
+  if (player.onGround && correr && vel > 4) {
+    state.polvoPasos = (state.polvoPasos ?? 0) - dt;
+    if (state.polvoPasos <= 0) {
+      state.polvoPasos = 0.09;
+      fx.small.emit(player.pos.clone().setY(0.1), { count: 2, color: zona.pisada === 'hierba' ? 0x7d8a5a : 0xa89a88, intensity: 0.6, speed: 0.7, life: 0.5, gravity: -0.4 });
+    }
+  }
 
   // la luna sigue al jugador: sombras nítidas estés donde estés
   moon.position.set(player.pos.x - 14, 24, player.pos.z + 8);
@@ -1495,6 +1617,8 @@ function tick(dt, t) {
   }
 
   updateCamera(dt);
+  pintarGuia();
+  atenuarEtiquetas(dt);
 }
 
 // la portada muestra el camino con la torre al fondo
@@ -1511,6 +1635,7 @@ let simT = 0;
 window.__torre = {
   state, player, world, casa, exterior, cam, ui, keys, sonido, aldric, red, companeros, pisos, renderer, accion,
   get zona() { return zona; },
+  get cine() { return cine; },
   // ir a una zona sin fundido (los pisos con carga diferida se construyen antes)
   async irA(id) {
     if (PISOS[id]) await asegurarPiso(id);

@@ -57,6 +57,8 @@ export class UI {
       this.onDialogo?.();
       const box = $('dialogue'), txt = box.querySelector('.dlg-text');
       box.querySelector('.dlg-speaker').textContent = speaker;
+      // los recuerdos se ven como un flashback (filtro en el lienzo)
+      document.body.classList.toggle('recuerdo', /Recuerdo/i.test(speaker));
       box.classList.remove('hidden');
       this.open.dialogue = true;
       let i = 0, segs, total, shown, timer;
@@ -86,6 +88,7 @@ export class UI {
         clearInterval(timer);
         box.classList.add('hidden');
         box.onclick = null;
+        document.body.classList.remove('recuerdo');
         this.open.dialogue = false;
         this.keyTarget = null;
         resolve();
@@ -509,10 +512,28 @@ export class UI {
   showScreen(id) { $(id).classList.remove('hidden'); }
 
   // ---------- HUD ----------
-  setObjectives(items) {
-    $('objectives').innerHTML = items
-      .map((o) => `<li class="${o.done ? 'done' : ''}"><span class="mark">${o.done ? '◆' : '◇'}</span>${esc(o.text)}</li>`)
+  // Misión: arriba lo que toca AHORA y cómo hacerlo; debajo, todas las del piso
+  setObjectives(items, como = '') {
+    const ahora = items.find((o) => !o.done);
+    $('mision-ahora').innerHTML = ahora
+      ? `<div class="mision-kicker">Ahora</div><div class="mision-titulo">${esc(ahora.text)}</div>${como ? `<div class="mision-como">${rich(como)}</div>` : ''}<div class="mision-guia">Sigue el rombo <b>◆</b> de la pantalla · <b>H</b> pista</div>`
+      : '';
+    // con una sola misión, la lista solo la repetiría
+    $('objectives').innerHTML = items.length < 2 && ahora ? '' : items
+      .map((o) => `<li class="${o.done ? 'done' : ''}${o === ahora ? ' actual' : ''}"><span class="mark">${o.done ? '◆' : o === ahora ? '▸' : '◇'}</span>${esc(o.text)}</li>`)
       .join('');
+  }
+
+  // Aviso grande al romper un sello: cuántos van y qué toca ahora
+  anunciarSello(n, total, siguiente) {
+    if (this.silencio) return;
+    document.querySelector('.anuncio-sello')?.remove();
+    const el = document.createElement('div');
+    el.className = 'anuncio-sello';
+    el.setAttribute('role', 'status');
+    el.innerHTML = `<div class="as-titulo">✦ Sello roto · ${n} de ${total}</div>${siguiente ? `<div class="as-siguiente">Siguiente: ${esc(siguiente)}</div>` : ''}`;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 4200);
   }
 
   setSaber(n) {

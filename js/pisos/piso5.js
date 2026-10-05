@@ -66,6 +66,7 @@ export async function construir(ctx) {
   ]);
   const imagenes = Object.fromEntries(IMAGENES.map((n, i) => [n, urls[i]]));
   const sala = crearSalaDeTorre({
+    ambiente: { color: 0xffb070, cada: 0.08, brillo: 0.8, sube: 0.5, vida: 3 },
     escena: ctx.escena, origen: ORIGEN, piezas, fx, semilla: 55, cielo: [0.26, 0.24, 0.42],
     estandartes: { normal: 'banner_yellow', escudo: 'banner_shield_yellow', fino: 'banner_thin_yellow' },
   });
@@ -244,10 +245,17 @@ export async function construir(ctx) {
     if (!est.sellos.auditoria) return C.pistas.auditoria;
     return C.pistas.puerta;
   }
+  // a dónde apunta la guía de la misión actual (main.js la dibuja)
+  function destino() {
+    if (!est.sellos.cartel) return aMundo(OESTE.x, 0, OESTE.z);
+    if (!est.sellos.responsive) return aMundo(NORTE.x, 0, NORTE.z);
+    if (!est.sellos.auditoria) return aMundo(ESTE.x, 0, ESTE.z);
+    return 'salida';
+  }
 
   Object.assign(zona, {
     id: P, nombre: C.nombre, musica: 'taller', pisada: 'madera',
-    actualizar, objetivos, pista,
+    actualizar, objetivos, pista, destino,
     salida: { abierta: () => S.estado.puerta, z: sala.salidaZ, accion: ['subir', { piso: 'piso6' }] },
   });
   zona.grupo.visible = false;

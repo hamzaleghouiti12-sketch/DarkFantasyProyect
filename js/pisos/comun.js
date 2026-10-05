@@ -19,8 +19,8 @@ export function crearSellos(ctx, sala, contenido, claves, opciones = {}) {
     ctx.addSaber(25);
     ctx.sacudir(0.35);
     ctx.celebrar();
-    ui.toast(`✦ Sello roto (${rotos()}/${claves.length})`, 'seal', 3600);
-    ctx.refrescarObjetivos();
+    if (ctx.anunciarSello) ctx.anunciarSello(rotos(), claves.length);
+    else { ui.toast(`✦ Sello roto (${rotos()}/${claves.length})`, 'seal', 3600); ctx.refrescarObjetivos(); }
     if (rotos() < claves.length) return;
     await ui.dialogue(contenido.sellosRotos);
     sonido.teletransporte();
@@ -32,6 +32,7 @@ export function crearSellos(ctx, sala, contenido, claves, opciones = {}) {
     estado.puerta = true;
     ctx.sacudir(0.8);
     ctx.refrescarObjetivos();
+    await ctx.mostrarSalida?.();
   }
   return { estado, romper, rotos };
 }

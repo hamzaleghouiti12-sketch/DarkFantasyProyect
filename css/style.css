@@ -460,3 +460,52 @@ h1 {
 @media (pointer: coarse) {
   #controls { display: none; }
 }
+
+/* ---------- Misión: lo que toca ahora y la guía en pantalla ---------- */
+#mision-ahora:empty { display: none; }
+#mision-ahora { margin: 8px 0 10px; padding: 10px 12px; border-radius: 8px; background: rgba(212, 175, 106, 0.1); border: 1px solid rgba(212, 175, 106, 0.35); }
+.mision-kicker { font: 700 11px Cinzel, serif; letter-spacing: 0.18em; text-transform: uppercase; color: var(--gold); }
+.mision-titulo { font-size: 17px; font-weight: 700; color: #f6e2b0; margin: 2px 0 4px; line-height: 1.3; }
+.mision-como { font-size: 14px; line-height: 1.45; color: var(--ink); }
+.mision-guia { margin-top: 6px; font-size: 12px; color: var(--ink-dim); }
+.mision-guia b { color: var(--gold); }
+#objectives li.actual { color: #f6e2b0; }
+#hud-objectives { max-width: 360px; }
+#guia { position: absolute; left: 0; top: 0; pointer-events: none; display: flex; flex-direction: column; align-items: center; margin: -18px 0 0 -18px; width: 36px; }
+.guia-rombo { font-size: 32px; line-height: 1; color: #ffd27a; text-shadow: 0 0 10px rgba(255, 190, 90, 0.9), 0 0 2px #000; animation: guia-latido 1.4s ease-in-out infinite; }
+.guia-flecha { display: none; font-size: 22px; color: #ffd27a; text-shadow: 0 0 8px rgba(255, 190, 90, 0.9); }
+#guia.fuera .guia-rombo { display: none; }
+#guia.fuera .guia-flecha { display: block; }
+.guia-dist { font: 700 12px "Alegreya Sans", sans-serif; color: #f6e2b0; text-shadow: 0 1px 2px #000; margin-top: 2px; white-space: nowrap; }
+@keyframes guia-latido { 50% { transform: translateY(-4px); opacity: 0.8; } }
+@media (prefers-reduced-motion: reduce) { .guia-rombo { animation: none; } }
+
+/* ---------- Cinemáticas ---------- */
+#cine { position: fixed; inset: 0; z-index: 55; pointer-events: auto; cursor: pointer; }
+.cine-banda { position: absolute; left: 0; right: 0; height: 11vh; background: #000; }
+.cine-banda.arriba { top: 0; }
+.cine-banda.abajo { bottom: 0; }
+.cine-sub { position: absolute; left: 50%; bottom: calc(11vh + 18px); transform: translateX(-50%); max-width: min(880px, 90vw); padding: 10px 18px; border-radius: 10px; background: rgba(8, 6, 12, 0.72); text-align: center; font-size: 20px; line-height: 1.4; color: #f3ead6; text-shadow: 0 1px 2px #000; }
+.cine-quien { display: block; font: 700 13px Cinzel, serif; letter-spacing: 0.14em; text-transform: uppercase; color: #9fe6ff; margin-bottom: 2px; }
+.cine-sub.mago .cine-quien { color: #ffd27a; }
+.cine-rotulo { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 0 12vw; text-align: center; font: 600 clamp(20px, 3vw, 34px)/1.5 Cinzel, serif; color: #f0d9a6; text-shadow: 0 2px 8px #000; z-index: 2; }
+.cine-saltar { position: absolute; right: 18px; bottom: calc(11vh + 18px); padding: 6px 14px; border-radius: 999px; border: 1px solid rgba(240, 217, 166, 0.5); background: rgba(8, 6, 12, 0.6); color: #f0d9a6; font: 600 13px "Alegreya Sans", sans-serif; cursor: pointer; z-index: 3; }
+.cine-saltar:hover { background: rgba(240, 217, 166, 0.2); }
+#cine.solo-titulo .cine-banda, #cine.solo-titulo .cine-saltar { display: none; }
+.cine-capitulo { display: flex; flex-direction: column; align-items: center; gap: 10px; animation: capitulo 2.3s ease both; }
+.cine-capitulo span { font: 700 clamp(14px, 1.6vw, 18px) Cinzel, serif; letter-spacing: 0.35em; text-transform: uppercase; color: #b9a2ff; }
+.cine-capitulo b { font: 700 clamp(30px, 5vw, 58px)/1.1 Cinzel, serif; color: #f0d9a6; text-shadow: 0 0 24px rgba(240, 190, 110, 0.35); }
+@keyframes capitulo { 0% { opacity: 0; transform: translateY(8px); } 18%, 80% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+body.en-cine #hud, body.en-cine #controls, body.en-cine #tactil { visibility: hidden; }
+
+/* ---------- Aviso de sello roto ---------- */
+.anuncio-sello { position: fixed; top: 18%; left: 50%; transform: translateX(-50%); z-index: 30; text-align: center; pointer-events: none; animation: anuncio 4.2s ease both; }
+.as-titulo { font: 700 clamp(22px, 3.2vw, 38px) Cinzel, serif; color: #e9d4ff; text-shadow: 0 0 18px rgba(176, 107, 255, 0.8), 0 2px 4px #000; }
+.as-siguiente { margin-top: 6px; font-size: 18px; color: #f6e2b0; text-shadow: 0 1px 3px #000; }
+@keyframes anuncio { 0% { opacity: 0; transform: translate(-50%, 10px) scale(0.96); } 10%, 82% { opacity: 1; transform: translate(-50%, 0) scale(1); } 100% { opacity: 0; } }
+/* viñeta suave: bordes un poco más oscuros (ambiente de cine) */
+#vineta { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.42) 100%); }
+/* flashback: los recuerdos de la torre */
+#game { transition: filter 0.8s ease; }
+body.recuerdo #game { filter: sepia(0.55) saturate(0.75) hue-rotate(-15deg) contrast(1.05) brightness(0.92); }
+@media (prefers-reduced-motion: reduce) { #game { transition: none; } }

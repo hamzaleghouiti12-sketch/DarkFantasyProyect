@@ -84,7 +84,9 @@ const brillo = (r, g, b, extra = {}) => {
  * @param {number[]} [o.cielo]          color RGB de la luz de luna tras las ventanas
  * @param {number} [o.semilla]
  */
-export function crearSalaDeTorre({ escena, origen, piezas, fx, estandartes = {}, cielo = [0.2, 0.3, 0.68], semilla = 7 }) {
+// ambiente: partículas propias de cada piso { color, cada (s), sube (velocidad hacia arriba), vida, brillo }
+export function crearSalaDeTorre({ escena, origen, piezas, fx, estandartes = {}, cielo = [0.2, 0.3, 0.68], semilla = 7, ambiente = {} }) {
+  const amb = { color: 0x8899cc, cada: 0.05, sube: 0, vida: 5, brillo: 0.5, ...ambiente };
   const grupo = new THREE.Group();
   grupo.position.copy(origen);
   escena.add(grupo);
@@ -108,12 +110,44 @@ export function crearSalaDeTorre({ escena, origen, piezas, fx, estandartes = {},
 
   // ---------- Muros (dos filas) y ventanas con luz de luna ----------
   const luzCielo = brillo(...cielo);
+  // haz de luz que entra por la ventana: dos láminas cruzadas, aditivas, que se
+  // desvanecen hacia el suelo (ambiente, sin coste de luces)
+  const lienzoHaz = document.createElement('canvas');
+  lienzoHaz.width = 64; lienzoHaz.height = 128;
+  const gHaz = lienzoHaz.getContext('2d'), grad = gHaz.createLinearGradient(0, 0, 0, 128);
+  grad.addColorStop(0, 'rgba(255,255,255,0.5)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  gHaz.fillStyle = grad;
+  gHaz.fillRect(0, 0, 64, 128);
+  // bordes laterales difuminados
+  const lados = gHaz.createLinearGradient(0, 0, 64, 0);
+  lados.addColorStop(0, 'rgba(0,0,0,0)');
+  lados.addColorStop(0.5, 'rgba(0,0,0,1)');
+  lados.addColorStop(1, 'rgba(0,0,0,0)');
+  gHaz.globalCompositeOperation = 'destination-in';
+  gHaz.fillStyle = lados;
+  gHaz.fillRect(0, 0, 64, 128);
+  const matHaz = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(lienzoHaz), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, opacity: 0.16 });
+  matHaz.color.setRGB(cielo[0] * 2.2, cielo[1] * 2.2, cielo[2] * 2.2);
   const ventana = (x, z, ry) => {
     poner('wall_archedwindow_gated', x, 4, z, ry, 1, false);
     const p = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 3.8), luzCielo);
     p.position.set(x - Math.sin(ry) * 0.8, 6, z - Math.cos(ry) * 0.8);
     p.rotation.y = ry;
     grupo.add(p);
+    // hacia dentro de la sala
+    const ix = Math.abs(x) > Math.abs(z) ? -Math.sign(x) : 0, iz = ix ? 0 : -Math.sign(z);
+    const haz = new THREE.Group();
+    haz.position.set(x + ix * 2.6, 3.4, z + iz * 2.6);
+    haz.rotation.y = Math.atan2(ix, iz);
+    for (const giro of [0, Math.PI / 2]) {
+      const lam = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 7.5), matHaz);
+      lam.rotation.y = giro;
+      haz.add(lam);
+    }
+    haz.rotation.x = 0.62; // la parte alta se inclina hacia la ventana
+    haz.rotation.order = 'YXZ';
+    grupo.add(haz);
   };
   const variado = () => (azar() < 0.3 ? 'wall_cracked' : 'wall');
   for (const x of [-10, -6, -2, 2, 6, 10]) {
@@ -210,9 +244,9 @@ export function crearSalaDeTorre({ escena, origen, piezas, fx, estandartes = {},
       }
       polvo -= dt;
       if (polvo <= 0) {
-        polvo = 0.05;
-        tmp.set(ox + (Math.random() - 0.5) * W * 1.8, Math.random() * 6, oz + (Math.random() - 0.5) * L * 1.8);
-        fx.small.emit(tmp, { count: 1, color: 0x8899cc, intensity: 0.5, speed: 0.12, life: 5, drag: 0.1 });
+        polvo = amb.cada;
+        tmp.set(ox + (Math.random() - 0.5) * W * 1.8, amb.sube > 0 ? Math.random() * 1.5 : Math.random() * 6, oz + (Math.random() - 0.5) * L * 1.8);
+        fx.small.emit(tmp, { count: 1, color: amb.color, intensity: amb.brillo, speed: 0.12, life: amb.vida, drag: 0.1, ...(amb.sube ? { up: amb.sube } : {}) });
       }
       if (puerta.abriendo && puerta.t < 1) {
         puerta.t = Math.min(1, puerta.t + dt * 0.4);

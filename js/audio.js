@@ -25,6 +25,7 @@ const ACORDES = {
   boveda: [[38, 45, 50, 53], [34, 46, 50, 53], [36, 43, 48, 52]],                    // Rem Sib Do
   criptas: [[38, 44, 47, 50], [39, 45, 48, 51]],                                      // disminuidos
   scriptorium: [[38, 50, 53, 57], [43, 50, 55, 59], [36, 48, 52, 55], [45, 52, 57, 60]], // Rem Sol Do Lam (dórico)
+  parque: [[50, 57, 62, 66], [55, 59, 62, 67], [47, 54, 59, 62], [45, 52, 57, 61]],      // Re Sol Sim La (mayor: nuestro mundo)
 };
 const PENTA = [62, 65, 67, 69, 72, 74, 77]; // re menor pentatónica para la caja de música
 const DORICO = [62, 64, 65, 67, 69, 71, 72, 74]; // re dórico (scriptorium)
@@ -374,6 +375,17 @@ export class Sonido {
       cada(() => {
         if (Math.random() < 0.6) this.campana(NOTA(PENTA[Math.floor(Math.random() * PENTA.length)] + 12), { vol: 0.035, dur: 2.2, destino: salida });
       }, () => 700 + Math.random() * 1300);
+    } else if (nombre === 'parque') {
+      // el mundo de los chicos: tarde cálida en modo mayor y pájaros
+      cada(() => acorde(ACORDES.parque[i++ % 4], 6, 0.03, 1400), 6000);
+      cada(() => {
+        if (Math.random() < 0.5) this.campana(NOTA([74, 76, 78, 81, 83, 86][Math.floor(Math.random() * 6)]), { vol: 0.025, dur: 1.6, destino: salida });
+      }, () => 900 + Math.random() * 1400);
+      cada(() => {
+        const f = 2600 + Math.random() * 1400;
+        this.tono(f, 0.07, { vol: 0.02, hasta: f * 1.25, destino: salida });
+        this.tono(f * 1.1, 0.06, { vol: 0.018, hasta: f * 0.9, cuando: 0.1, destino: salida });
+      }, () => 1500 + Math.random() * 2500);
     } else if (nombre === 'exterior') {
       bordon(NOTA(38), 'sine', 0.09, 400);
       bordon(NOTA(38), 'sawtooth', 0.02, 260);

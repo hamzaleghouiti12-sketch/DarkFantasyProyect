@@ -86,6 +86,7 @@ export async function construir(ctx) {
   const { ui, sonido, fx, estado } = ctx;
   const piezas = await cargarPiezasTorre(ctx.paletas.mazmorra, [...PIEZAS_BASE, ...EXTRA]);
   const sala = crearSalaDeTorre({
+    ambiente: { color: 0xbfe6ff, cada: 0.04, brillo: 0.7 },
     escena: ctx.escena, origen: ORIGEN, piezas, fx, semilla: 21, cielo: [0.16, 0.3, 0.62],
     estandartes: { normal: 'banner_blue', escudo: 'banner_shield_blue', fino: 'banner_thin_blue' },
   });
@@ -549,12 +550,19 @@ export async function construir(ctx) {
     if (!est.sellos.cripta) return est.criptaValida ? C.pistas.cripta_sellar : C.pistas.cripta;
     return C.pistas.puerta;
   }
+  // a dónde apunta la guía de la misión actual (main.js la dibuja)
+  function destino() {
+    if (!est.sellos.soportes) return aMundo(ATRIL.x, 0, ATRIL.z);
+    if (!est.sellos.balanza) return aMundo(BAL.x, 0, BAL.z);
+    if (!est.sellos.cripta) return aMundo(PED.x, 0, PED.z);
+    return 'salida';
+  }
 
   // El Piso II cumple el contrato de zona y añade lo propio del piso
   Object.assign(zona, {
     id: P, nombre: C.nombre, musica: 'boveda',
     actualizar: actualizar,
-    objetivos, pista,
+    objetivos, pista, destino,
     salida: { abierta: () => est.puerta, z: sala.salidaZ, accion: ['subir', { piso: 'piso3' }] },
     alFocalizar(it) { for (const p of pedestales) p.foco = it?.pedestal === p; },
   });
