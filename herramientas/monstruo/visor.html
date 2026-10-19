@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>Visor del monstruo</title>
+<style>html,body{margin:0;background:#1a1420;overflow:hidden}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+</head><body>
+<script type="module">
+// Visor de prueba: carga un modelo (OBJ o GLB) y lo enseña de frente, de lado, de espaldas y en 3/4.
+import * as THREE from 'three';
+import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+const q = new URLSearchParams(location.search);
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(1200, 600);
+renderer.setScissorTest(true);
+document.body.appendChild(renderer.domElement);
+const escena = new THREE.Scene();
+escena.background = new THREE.Color(0x2a2230);
+escena.add(new THREE.HemisphereLight(0xffffff, 0x554466, 2.2));
+const sol = new THREE.DirectionalLight(0xffffff, 2); sol.position.set(2, 3, 4); escena.add(sol);
+const cam = new THREE.PerspectiveCamera(30, 0.5, 0.1, 50);
+let modelo;
+let clips = [], mezclador = null;
+async function cargar() {
+  if (q.get('glb')) {
+    const g = await new GLTFLoader().loadAsync(q.get('glb'));
+    clips = g.animations;
+    mezclador = new THREE.AnimationMixer(g.scene);
+    return g.scene;
+  }
+  const mtl = await new MTLLoader().setPath('./').loadAsync('monstruo.mtl');
+  return new OBJLoader().setMaterials(mtl).setPath('./').loadAsync('monstruo.obj');
+}
+modelo = await cargar();
+escena.add(modelo);
+const vistas = [[0, 'frente'], [Math.PI / 2, 'lado'], [Math.PI, 'espalda'], [Math.PI / 4, '3/4']];
+window.pintar = (t = 0) => {
+  vistas.forEach(([a, _], i) => {
+    cam.position.set(Math.sin(a) * 3.2, 0.1, Math.cos(a) * 3.2);
+    cam.lookAt(0, 0, 0);
+    renderer.setViewport(i * 300, 0, 300, 600);
+    renderer.setScissor(i * 300, 0, 300, 600);
+    renderer.render(escena, cam);
+  });
+};
+window.modelo = modelo;
+// pone el modelo en la pose de la animación «nombre» en el instante u (0..1)
+window.pose = (nombre, u) => {
+  if (!mezclador) return;
+  mezclador.stopAllAction();
+  const c = clips.find((x) => x.name === nombre);
+  if (!c) return;
+  const a = mezclador.clipAction(c);
+  a.play();
+  mezclador.setTime(u * c.duration);
+};
+// 4 paneles: cada uno es [animación, instante, ángulo de cámara]
+window.paneles = (lista) => {
+  lista.forEach(([nombre, u, ang], i) => {
+    pose(nombre, u);
+    cam.position.set(Math.sin(ang) * 3.2, 0.1 + (q.get('glb') ? 0.4 : 0), Math.cos(ang) * 3.2);
+    cam.lookAt(0, q.get('glb') ? 0.5 : 0, 0);
+    renderer.setViewport(i * 300, 0, 300, 600);
+    renderer.setScissor(i * 300, 0, 300, 600);
+    renderer.render(escena, cam);
+  });
+};
+window.nombresClips = () => clips.map((c) => c.name);
+pintar();
+window.listo = true;
+</script></body></html>

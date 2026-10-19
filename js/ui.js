@@ -33,6 +33,19 @@ function shuffle(a) {
 
 const ADVANCE = ['KeyE', 'Space', 'Enter'];
 
+// Reacciones de Aldric al responder (para que no sea siempre «¡Correcto!»)
+const VIVAS = ['¡Correcto!', '¡Eso es!', '¡Como un archimago!', '¡Morvath acaba de temblar!', '¡Impecable!', '¡Bien visto!', '¡Exacto!', '¡Lo tenéis!'];
+const ANIMOS = ['No exactamente.', 'Casi… mirad esto:', 'Tranquilos, se aprende fallando.', 'Uy, esa era la trampa.', 'No pasa nada: así se aprende.'];
+const azar = (l) => l[Math.floor(Math.random() * l.length)];
+// estrellas de un piso: ★★★ con 85 % y al menos 3 aciertos; ★★ con 60 %; si no, ★ (0 si no hubo preguntas)
+export function estrellasDe({ aciertos, fallos }) {
+  const total = aciertos + fallos;
+  if (!total) return 0;
+  const p = aciertos / total;
+  return p >= 0.85 && aciertos >= 3 ? 3 : p >= 0.6 ? 2 : 1;
+}
+const RAYO_MS = { opcion: 12000, escrito: 22000 }; // el bonus de rapidez (sin castigo si no llega)
+
 export class UI {
   constructor() {
     this.open = { dialogue: false, quiz: false, grimoire: false, story: false, formulario: false, terminal: false, editor: false };
@@ -43,6 +56,69 @@ export class UI {
   }
 
   anyOpen() { return Object.values(this.open).some(Boolean); }
+
+  // La carta de la pregunta entra con un pequeño salto y arranca el anillo del ⚡ rayo
+  prepararCarta(root, ms) {
+    const carta = root.querySelector('.modal-card');
+    carta.classList.remove('acierto', 'fallo', 'entra');
+    void carta.offsetWidth;
+    carta.classList.add('entra');
+    carta.querySelectorAll('.confeti').forEach((c) => c.remove());
+    let rayo = carta.querySelector('.quiz-rayo');
+    if (!rayo) {
+      rayo = document.createElement('div');
+      rayo.className = 'quiz-rayo';
+      rayo.title = 'Responded antes de que se vacíe para ganar saber extra';
+      rayo.innerHTML = '<span>⚡</span>';
+      carta.appendChild(rayo);
+    }
+    rayo.classList.remove('fin', 'gana');
+    rayo.style.animation = 'none';
+    void rayo.offsetWidth;
+    rayo.style.animation = `rayo ${ms}ms linear forwards`;
+    rayo.hidden = !!this.sinRayo;
+    // barra de la serie (si la pregunta forma parte de una): un segmento por prueba
+    let barra = carta.querySelector('.quiz-serie');
+    const b = this.barraSerie;
+    if (b && b.total > 1) {
+      if (!barra) {
+        barra = document.createElement('div');
+        barra.className = 'quiz-serie';
+        carta.querySelector('.quiz-kicker').after(barra);
+      }
+      barra.innerHTML = Array.from({ length: b.total }, (_, i) =>
+        `<i class="${i < b.hechos ? 'rota' : i === b.hechos ? 'actual' : ''}"></i>`).join('');
+      barra.hidden = false;
+    } else if (barra) barra.hidden = true;
+    return performance.now();
+  }
+  // Al responder: brillo o sacudida, confeti y la cabecera con la reacción, la racha y el bonus
+  reaccionar(root, ok, info = {}) {
+    const carta = root.querySelector('.modal-card');
+    const rayo = carta.querySelector('.quiz-rayo');
+    rayo.style.animationPlayState = 'paused';
+    rayo.classList.add(info.rapido ? 'gana' : 'fin');
+    carta.classList.add(ok ? 'acierto' : 'fallo');
+    const seg = carta.querySelector('.quiz-serie:not([hidden]) .actual');
+    if (seg) seg.className = ok ? 'rota golpe' : 'aguanta';
+    if (ok) {
+      const colores = ['#ffd27a', '#9fe6ff', '#c8a8ff', '#8fe08f', '#ff9a8a'];
+      for (let i = 0; i < 22; i++) {
+        const c = document.createElement('i');
+        c.className = 'confeti';
+        c.style.left = `${10 + Math.random() * 80}%`;
+        c.style.background = colores[i % colores.length];
+        c.style.setProperty('--dx', `${(Math.random() - 0.5) * 220}px`);
+        c.style.setProperty('--giro', `${Math.random() * 720}deg`);
+        c.style.animationDelay = `${Math.random() * 0.15}s`;
+        carta.appendChild(c);
+      }
+    }
+    const extras = [];
+    if (ok && info.rapido) extras.push('<span class="chapa rayo">⚡ ¡Rápido! +5</span>');
+    if (ok && info.racha >= 2) extras.push(`<span class="chapa racha">🔥 Racha ×${info.racha}${info.bonusRacha ? ` +${info.bonusRacha}` : ''}</span>`);
+    return `<strong>${ok ? azar(VIVAS) : azar(ANIMOS)}</strong>${extras.length ? ` ${extras.join(' ')}` : ''}`;
+  }
 
   handleKey(e) {
     if (!this.keyTarget) return false;
@@ -66,6 +142,7 @@ export class UI {
       const show = () => {
         segs = segments(lines[i]);
         total = segs.reduce((n, s) => n + s.t.length, 0);
+        this.onPagina?.(lines[i], speaker);
         shown = 0;
         clearInterval(timer);
         timer = setInterval(() => {
@@ -125,21 +202,46 @@ export class UI {
       });
       root.classList.remove('hidden');
       this.open.quiz = true;
-      const openedAt = performance.now();
-      let answered = false, result = false;
+      const openedAt = this.prepararCarta(root, RAYO_MS.opcion);
+      let answered = false, result = false, info = {};
+
+      // 🪄 comodín de Aldric: tacha opciones falsas (deja la buena y una falsa). Se gana jugando.
+      root.querySelector('.quiz-comodin')?.remove();
+      let comodin = null;
+      if (opts.length >= 3 && this.comodines > 0) {
+        comodin = document.createElement('button');
+        comodin.className = 'quiz-comodin';
+        comodin.innerHTML = `🪄 Comodín de Aldric <span>×${this.comodines}</span> <kbd>C</kbd>`;
+        comodin.title = 'Aldric tacha las opciones falsas menos una';
+        comodin.onclick = () => usarComodin();
+        optsEl.after(comodin);
+      }
+      const usarComodin = () => {
+        if (answered || !comodin || comodin.disabled || !(this.comodines > 0)) return;
+        this.comodines--;
+        this.onComodin?.();
+        comodin.disabled = true;
+        comodin.innerHTML = '🪄 Aldric ha tachado las trampas';
+        const falsas = opts.map((o, k) => k).filter((k) => !opts[k].ok);
+        shuffle(falsas).slice(0, falsas.length - 1).forEach((k, i) => setTimeout(() => {
+          buttons[k].disabled = true;
+          buttons[k].classList.add('tachada');
+        }, i * 180));
+      };
 
       const choose = (j) => {
         if (answered || performance.now() - openedAt < 250) return;
         answered = true;
+        if (comodin) comodin.disabled = true;
         result = opts[j].ok;
-        this.onRespuesta?.(result);
+        info = this.onRespuesta?.(result, { ms: performance.now() - openedAt, limite: RAYO_MS.opcion }) ?? {};
         buttons.forEach((b, k) => {
           b.disabled = true;
           if (opts[k].ok) b.classList.add('correct');
           else if (k === j) b.classList.add('wrong');
         });
         fb.className = `quiz-feedback ${result ? 'ok' : 'bad'}`;
-        fb.innerHTML = `<strong>${result ? '¡Correcto!' : 'No exactamente.'}</strong> ${esc(q.explicacion)}`;
+        fb.innerHTML = `${this.reaccionar(root, result, info)} ${esc(q.explicacion)}`;
         cont.classList.remove('hidden');
         cont.focus();
       };
@@ -153,7 +255,8 @@ export class UI {
       cont.onclick = close;
       this.keyTarget = (e) => {
         const n = Number(e.key);
-        if (!answered && n >= 1 && n <= opts.length) choose(n - 1);
+        if (!answered && e.code === 'KeyC') usarComodin();
+        else if (!answered && n >= 1 && n <= opts.length && !buttons[n - 1].disabled) choose(n - 1);
         else if (answered && ADVANCE.includes(e.code)) close();
       };
     });
@@ -226,8 +329,9 @@ export class UI {
       const responder = () => {
         if (answered || comprobar.disabled) return;
         answered = true;
+        if (comodin) comodin.disabled = true;
         result = corregir(q, respuesta);
-        this.onRespuesta?.(result);
+        info = this.onRespuesta?.(result, { ms: performance.now() - abiertaEn, limite: RAYO_MS.escrito }) ?? {};
         comprobar.classList.add('hidden');
         if (entrada) { entrada.disabled = true; entrada.classList.add(result ? 'correct' : 'wrong'); entrada.blur(); }
         pintar();
@@ -237,11 +341,46 @@ export class UI {
             ? `La respuesta es **${q.esperada ?? q.aceptadas[0]}**.`
             : `Orden correcto: ${q.opciones.join(' → ')}.`;
         fb.className = `quiz-feedback ${result ? 'ok' : 'bad'}`;
-        fb.innerHTML = `<strong>${result ? '¡Correcto!' : 'No exactamente.'}</strong> ${result ? '' : rich(solucion) + ' '}${esc(q.explicacion)}`;
+        fb.innerHTML = `${this.reaccionar(root, result, info)} ${result ? '' : rich(solucion) + ' '}${esc(q.explicacion)}`;
         cont.classList.remove('hidden');
         cont.focus();
       };
       comprobar.onclick = responder;
+
+      // 🪄 comodín de Aldric también aquí: un rango para los números, la primera letra
+      // para las palabras y la primera pieza colocada para ordenar
+      root.querySelector('.quiz-comodin')?.remove();
+      let comodin = null;
+      const usarComodin = () => {
+        if (answered || !comodin || comodin.disabled || !(this.comodines > 0)) return;
+        this.comodines--;
+        this.onComodin?.();
+        comodin.disabled = true;
+        let pista;
+        if (q.tipo === 'numero') {
+          const v = Number(q.valor), ancho = Math.max(Math.abs(v) * 0.4, 2), r = 0.2 + Math.random() * 0.6;
+          // números redondos: decenas si es grande, enteros si es mediano, una décima si es pequeño (el rango siempre contiene la respuesta)
+          const paso = Math.abs(v) >= 100 ? 10 : Math.abs(v) >= 10 ? 1 : 0.1;
+          const fmt = (x) => String(Math.round(x / paso) * paso).replace(/(\.\d)\d+$/, '$1').replace('.', ',');
+          const bajo = Math.max(v >= 0 ? 0 : -Infinity, Math.floor((v - ancho * r) / paso) * paso), alto = Math.ceil((v + ancho * (1 - r)) / paso) * paso;
+          pista = `Aldric susurra: está entre **${fmt(bajo)}** y **${fmt(alto)}**${q.unidad ? ` ${q.unidad}` : ''}.`;
+        } else if (q.tipo === 'texto') {
+          const palabra = String(q.esperada ?? q.aceptadas[0]);
+          pista = `Aldric susurra: empieza por **«${palabra[0].toUpperCase()}»** y tiene **${palabra.length}** caracteres.`;
+        } else {
+          respuesta.splice(0, respuesta.length, 0);
+          pintar();
+          pista = 'Aldric ha colocado la **primera pieza**. Seguid vosotros.';
+        }
+        comodin.innerHTML = `🪄 ${rich(pista)}`;
+      };
+      if (this.comodines > 0) {
+        comodin = document.createElement('button');
+        comodin.className = 'quiz-comodin';
+        comodin.innerHTML = `🪄 Comodín de Aldric <span>×${this.comodines}</span>${q.tipo === 'orden' ? ' <kbd>C</kbd>' : ''}`;
+        comodin.onclick = usarComodin;
+        optsEl.after(comodin);
+      }
       const close = () => {
         root.classList.add('hidden');
         this.open.quiz = false;
@@ -252,11 +391,14 @@ export class UI {
       cont.onclick = close;
       root.classList.remove('hidden');
       this.open.quiz = true;
+      const abiertaEn = this.prepararCarta(root, RAYO_MS.escrito);
+      let info = {};
       this.keyTarget = (e) => {
         if (answered) { if (ADVANCE.includes(e.code)) close(); return; }
         if (q.tipo === 'orden') {
           const n = Number(e.key);
-          if (n >= 1) this._ordenTecla(n);
+          if (e.code === 'KeyC') usarComodin();
+          else if (n >= 1) this._ordenTecla(n);
           else if (e.code === 'Backspace') this._ordenBorrar();
           else if (e.code === 'Enter') responder();
         }
@@ -534,6 +676,48 @@ export class UI {
     el.innerHTML = `<div class="as-titulo">✦ Sello roto · ${n} de ${total}</div>${siguiente ? `<div class="as-siguiente">Siguiente: ${esc(siguiente)}</div>` : ''}`;
     document.body.appendChild(el);
     setTimeout(() => el.remove(), 4200);
+  }
+
+  // Balance del piso al subir: estrellas por precisión, mejor racha, rayos y tiempo
+  balancePiso(nombre, b) {
+    if (this.silencio) return;
+    const total = b.aciertos + b.fallos;
+    if (!total) return;
+    const p = b.aciertos / total;
+    const estrellas = estrellasDe(b);
+    const frase = ['Superado. ¡La próxima vez, a por más estrellas!', '¡Buen trabajo! Morvath empieza a preocuparse.', '¡Perfección de archimago!'][estrellas - 1];
+    const min = Math.max(1, Math.round(b.segundos / 60));
+    document.querySelector('.balance-piso')?.remove();
+    const el = document.createElement('div');
+    el.className = 'balance-piso';
+    el.setAttribute('role', 'status');
+    el.innerHTML = `
+      <div class="bp-titulo">${esc(nombre)} · superado</div>
+      <div class="bp-estrellas">${[0, 1, 2].map((i) => `<span class="${i < estrellas ? 'llena' : ''}" style="animation-delay:${0.25 + i * 0.28}s">★</span>`).join('')}</div>
+      <div class="bp-frase">${frase}</div>
+      <div class="bp-datos">
+        <span><b>${Math.round(p * 100)}%</b> aciertos</span>
+        <span><b>🔥 ${b.mejorRacha}</b> mejor racha</span>
+        <span><b>⚡ ${b.rapidos}</b> rápidas</span>
+        <span><b>${min}</b> min</span>
+      </div>`;
+    document.body.appendChild(el);
+    setTimeout(() => el.classList.add('sale'), 5600);
+    setTimeout(() => el.remove(), 6200);
+    return estrellas;
+  }
+
+  // Concepto nuevo en el grimorio: una página que entra girando
+  conceptoNuevo(titulo) {
+    if (this.silencio) return;
+    document.querySelector('.concepto-nuevo')?.remove();
+    const el = document.createElement('div');
+    el.className = 'concepto-nuevo';
+    el.setAttribute('role', 'status');
+    el.innerHTML = `<div class="cn-icono">📖</div><div><div class="cn-kicker">Nuevo concepto en el grimorio</div><div class="cn-titulo">${esc(titulo)}</div><div class="cn-pie">Pulsa <b>G</b> para repasarlo · la varita ya puede preguntarlo</div></div>`;
+    document.body.appendChild(el);
+    setTimeout(() => el.classList.add('sale'), 3800);
+    setTimeout(() => el.remove(), 4400);
   }
 
   setSaber(n) {

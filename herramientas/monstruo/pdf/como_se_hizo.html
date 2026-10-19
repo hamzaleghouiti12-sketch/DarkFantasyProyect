@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>Cómo metí al monstruo en La Torre de Morvath</title>
+<style>
+  @page { size: A4; margin: 16mm 15mm 14mm; }
+  :root { --tinta: #2a2230; --oro: #b07a1e; --suave: #6b6175; --fondo: #f6f1e8; --naranja: #e2731d; }
+  * { box-sizing: border-box; }
+  body { font: 9.8pt/1.4 'Segoe UI', system-ui, sans-serif; color: var(--tinta); margin: 0; }
+  .pagina { page-break-after: always; break-after: page; }
+  .pagina:last-child { page-break-after: auto; break-after: auto; }
+  h1 { font: 700 21pt/1.15 Georgia, serif; margin: 0 0 4px; }
+  h2 { font: 700 13pt/1.2 Georgia, serif; margin: 10px 0 5px; color: var(--naranja); }
+  h3 { font-size: 10.4pt; margin: 8px 0 3px; }
+  p { margin: 0 0 7px; }
+  .kicker { font-size: 8.5pt; letter-spacing: .12em; text-transform: uppercase; color: var(--oro); font-weight: 700; }
+  .sub { color: var(--suave); margin-bottom: 10px; }
+  .fila { display: flex; gap: 12px; align-items: flex-start; }
+  .fila > * { flex: 1; }
+  img { max-width: 100%; border-radius: 6px; display: block; }
+  figure { margin: 6px 0 8px; }
+  figcaption { font-size: 8.4pt; color: var(--suave); margin-top: 3px; }
+  .pasos { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 8px 0 10px; }
+  .paso { background: var(--fondo); border-radius: 6px; padding: 7px 8px; font-size: 8.6pt; line-height: 1.3; border-top: 3px solid var(--naranja); }
+  .paso b { display: block; font-size: 9.4pt; margin-bottom: 2px; }
+  code, .mono { font: 8.6pt/1.35 Consolas, monospace; }
+  pre { background: #231c29; color: #f1e6d6; border-radius: 6px; padding: 7px 9px; margin: 5px 0 8px; font: 8.2pt/1.38 Consolas, monospace; white-space: pre-wrap; }
+  .caja { background: var(--fondo); border-left: 3px solid var(--oro); border-radius: 4px; padding: 7px 10px; margin: 8px 0; font-size: 9.4pt; }
+  table { width: 100%; border-collapse: collapse; font-size: 8.8pt; margin: 4px 0 8px; }
+  th, td { text-align: left; padding: 3.5px 6px; border-bottom: 1px solid #e3dccf; vertical-align: top; }
+  th { background: var(--fondo); }
+  ul { margin: 2px 0 7px 16px; padding: 0; } li { margin-bottom: 2px; }
+  .pie { font-size: 8pt; color: var(--suave); margin-top: 8px; }
+</style></head><body>
+
+<!-- ================= PÁGINA 1 ================= -->
+<section class="pagina">
+  <div class="kicker">La Torre de Morvath · cómo se hizo</div>
+  <h1>De una imagen a un personaje jugable</h1>
+  <p class="sub">El monstruo naranja: de un dibujo plano a un modelo 3D con esqueleto, 16 animaciones y su propio ataque, en la sala de equipo junto al Encapuchado, la Pícara, el Caballero y el Bárbaro.</p>
+
+  <div class="fila">
+    <figure style="flex:.5"><img src="referencia.jpg"><figcaption>La imagen de partida (una sola vista, de frente).</figcaption></figure>
+    <div>
+      <h2 style="margin-top:0">La idea en una frase</h2>
+      <p>Una IA de «imagen a 3D» adivina la forma completa del monstruo, por delante y por detrás, a partir de la foto. Después, unos scripts propios le ponen <b>huesos</b> para que se pueda doblar, le dan <b>movimientos</b> con los mismos nombres que ya usa el juego y lo guardan como un archivo <b>GLB</b> que el juego carga igual que a los demás personajes.</p>
+      <h2>La condición: nada de más de 0,5 GB de RAM</h2>
+      <p>Los modelos de imagen a 3D que se pueden instalar en casa (TripoSR, Hunyuan3D, TRELLIS) necesitan varios GB de memoria y una tarjeta gráfica potente, y este portátil no tiene GPU. La solución fue <b>no instalar nada</b>:</p>
+      <ul>
+        <li>La IA se ejecuta en un <b>Space gratuito de Hugging Face</b> (TRELLIS, de Microsoft, en GPU compartida). Mi ordenador solo envía la imagen y recibe el modelo.</li>
+        <li>El resto (convertir, montar el esqueleto, animar) son scripts de <b>Python con la biblioteca estándar y numpy</b>, que ya estaban instalados.</li>
+        <li>Memoria usada en local: unas decenas de MB. Coste: 0 €. Descargas de programas: ninguna.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>Los cinco pasos</h2>
+  <div class="pasos">
+    <div class="paso"><b>1 · Generar</b>TRELLIS quita el fondo y crea la malla con textura (25 s).</div>
+    <div class="paso"><b>2 · OBJ</b>Un conversor propio pasa el GLB a OBJ + MTL + PNG.</div>
+    <div class="paso"><b>3 · Medir</b>Se corta la malla en rodajas para saber dónde están piernas, brazos y cuello.</div>
+    <div class="paso"><b>4 · Huesos y animación</b>13 huesos, pesos de piel y 16 animaciones con nombres de KayKit.</div>
+    <div class="paso"><b>5 · Al juego</b>Una línea en la lista de personajes, su ataque y su sonido. Pruebas y git push.</div>
+  </div>
+
+  <h3>Paso 1 · Generar el modelo sin instalar nada</h3>
+  <p>Los Spaces de Hugging Face tienen detrás una aplicación <b>Gradio</b>. Su página web habla con el servidor mediante una cola: se apunta uno a ella (<span class="mono">/queue/join</span>) y escucha los resultados por un flujo de eventos (<span class="mono">/queue/data</span>, SSE). El script <span class="mono">generar_3d.py</span> imita ese protocolo con <span class="mono">urllib</span>: abre una sesión, sube la imagen, pide <i>preprocess_image</i> (quita el fondo) y <i>generate_and_extract_glb</i> (forma + textura), y descarga el GLB.</p>
+  <pre>python generar_3d.py monstruo_referencia.jpg monstruo_trellis.glb
+Abriendo sesión… → Subiendo la imagen… → Quitando el fondo… → Generando forma + textura…
+Listo en 25 s -> monstruo_trellis.glb   (1,6 MB: 9.993 vértices, 15.754 caras, textura 1024 px)</pre>
+  <div class="caja"><b>Primer tropiezo.</b> Llamar a cada función por separado devolvía <i>«404: Session not found»</i>. TRELLIS guarda archivos por sesión, así que las tres llamadas tienen que ir en <b>la misma sesión de la cola</b>, como hace la web. Los números de función (<span class="mono">fn_index</span> 4, 8 y 11) salen de la configuración pública del Space (<span class="mono">/config</span>).</div>
+</section>
+
+<!-- ================= PÁGINA 2 ================= -->
+<section class="pagina">
+  <h3>Paso 2 · El OBJ (y por qué el juego usa GLB)</h3>
+  <p>Un GLB es glTF en binario: un bloque JSON que describe la escena y un bloque BIN con los números. <span class="mono">glb_a_obj.py</span> lee los dos, saca posiciones, coordenadas de textura (con la V invertida, porque glTF y OBJ la cuentan al revés) e índices, y escribe <span class="mono">monstruo.obj</span>, <span class="mono">monstruo.mtl</span> y <span class="mono">monstruo.png</span>. El OBJ es el formato universal, el que abre cualquier programa 3D. Pero <b>no admite huesos ni animaciones</b>, así que el juego carga un GLB.</p>
+  <figure><img src="visor_obj.jpg" style="height:52mm;width:100%;object-fit:cover"><figcaption>El OBJ en un visor propio con Three.js: frente, lado, espalda y 3/4. La IA inventó la parte de atrás, que no salía en la imagen, de forma coherente.</figcaption></figure>
+
+  <h3>Paso 3 · Medir el cuerpo</h3>
+  <p>Para poner huesos hay que saber dónde están las articulaciones. <span class="mono">analizar.py</span> corta la malla en rodajas de 2,5 cm de alto y, en cada una, busca los huecos de más de 2 cm a lo largo del eje x. Así se distinguen las piezas separadas:</p>
+  <table>
+    <tr><th>Altura (y)</th><th>Lo que se ve en la rodaja</th><th>Conclusión</th></tr>
+    <tr><td>−0,50 a −0,23</td><td>dos grupos: x∈[−0,13; 0] y x∈[0,04; 0,22]</td><td>dos piernas; la rodilla, hacia −0,36</td></tr>
+    <tr><td>−0,33 a −0,08</td><td>grupos estrechos a los lados del tronco</td><td>dos brazos finos, de distinto largo</td></tr>
+    <tr><td>−0,22 a −0,05</td><td>un solo grupo de unos 18 cm</td><td>tronco; la cadera, en −0,215</td></tr>
+    <tr><td>−0,04 a 0,50</td><td>un grupo de más de 60 cm de ancho</td><td>la cabezota (7.275 de los 9.993 vértices)</td></tr>
+  </table>
+
+  <h3>Paso 4a · El esqueleto y los pesos de piel</h3>
+  <p><span class="mono">construir_rig.py</span> crea <b>13 huesos</b>: raíz, cadera, tronco, cabeza, dos tramos por pierna y dos por brazo. En las manos añade los puntos <span class="mono">handslotr/handslotl</span>, que es donde el juego cuelga la varita. Luego decide qué hueso mueve cada vértice (<b>pesos de piel</b>):</p>
+  <ul>
+    <li><b>Por regiones:</b> por encima del cuello, la cabeza; fuera del borde del tronco, los brazos; por debajo de la ingle, cada pierna según su lado.</li>
+    <li><b>Con fundido suave</b> en cada articulación (función <i>smoothstep</i>): cerca del codo, de la rodilla o del cuello, el vértice reparte su peso entre los dos huesos, para que la malla se doble en curva y no se quiebre.</li>
+    <li>Cada vértice guarda sus 4 huesos principales con pesos que suman 1, que es lo que exige glTF.</li>
+  </ul>
+  <div class="caja"><b>Segundo tropiezo.</b> Las primeras capturas salían llenas de triángulos estirados. El cálculo en el procesador (<span class="mono">getVertexPosition</span>) daba aristas de 8 cm como mucho, así que el esqueleto estaba bien: el fallo era cómo hacía las fotos. Pintaba cuatro poses distintas en el mismo fotograma, y la GPU reutilizaba los huesos de la pose anterior. Pintando cada pose en su propio fotograma, todo salió limpio. En el juego nunca pasa, porque hay una pose por fotograma.</div>
+</section>
+
+<!-- ================= PÁGINA 3 ================= -->
+<section class="pagina">
+  <h3>Paso 4b · Los movimientos</h3>
+  <p>Cada animación es una función matemática del tiempo: para cada instante devuelve el giro de cada hueso (en grados, que luego pasan a cuaterniones) y un desplazamiento de la cadera para los botes. Se muestrea a 24 fotogramas por segundo y se guarda dentro del GLB. Al andar, por ejemplo, las piernas oscilan con seno y las rodillas solo se doblan hacia atrás; los brazos van a contratiempo y la cadera rebota dos veces por ciclo. Lo importante es que <b>se llaman igual que en los personajes de KayKit</b>, así que el jugador, los compañeros en equipo y las cinemáticas los usan sin tocar su código.</p>
+  <figure><img src="poses.jpg" style="height:56mm;width:100%;object-fit:contain;background:#2a2230"><figcaption>12 de las 16 animaciones en el visor. Además: Hit_B, Spellcasting, Dodge_Backward y Sit_Floor_StandUp.</figcaption></figure>
+  <div class="caja"><b>Ajuste de diseño.</b> En la primera versión de <i>Cheer</i> (celebrar), los brazos subían 150° y quedaban tapados por la cabezota. Los brazos son cortos, así que ahora se abren en cruz (95°) y se agitan. Los modelos de IA traen sus propias proporciones, y las animaciones se adaptan a ellas, no al revés.</div>
+
+  <h3>Paso 5 · Meterlo en el juego</h3>
+  <table>
+    <tr><th>Archivo</th><th>Cambio</th></tr>
+    <tr><td class="mono">assets/modelos/monstruo.glb</td><td>el modelo final: malla, textura JPEG, 13 huesos y 16 animaciones (0,95 MB)</td></tr>
+    <tr><td class="mono">js/personajes.js</td><td>una entrada nueva, <i>Monstruo</i>, sin paleta (trae su propia textura; los demás usan la paleta oscura común)</td></tr>
+    <tr><td class="mono">js/armas.js · ataques.js · audio.js</td><td>un quinto tipo de ataque, el <b>cabezazo mordedor</b>: corto (2,1 m) y rápido, con chispas naranjas y un «ñam» sintetizado</td></tr>
+    <tr><td class="mono">herramientas/monstruo/</td><td>los scripts, el OBJ, el visor y este documento, para poder repetirlo con otra imagen</td></tr>
+  </table>
+  <figure><img src="juego_tira.jpg" style="height:40mm;width:100%;object-fit:contain;background:#1a1420"><figcaption>Ya en el Piso II, como jugador (cámara a su espalda): de pie, celebrando, cabezazo y lanzando un hechizo.</figcaption></figure>
+
+  <h2>Para repetirlo con otro dibujo</h2>
+  <pre>cd herramientas/monstruo
+python generar_3d.py mi_imagen.jpg modelo.glb        # 1 · IA en Hugging Face (gratis)
+python glb_a_obj.py modelo.glb modelo.obj            # 2 · OBJ universal
+python analizar.py modelo.glb                        # 3 · medir: dónde poner los huesos
+python construir_rig.py modelo.glb ../../assets/modelos/nuevo.glb   # 4 · huesos y animaciones</pre>
+  <p>En el paso 4 hay que copiar las medidas del paso 3 en la tabla <span class="mono">HUESOS</span>: cada personaje tiene su cuerpo. Funciona mejor con imágenes de cuerpo entero, de frente, con brazos y piernas separados del tronco y sobre un fondo liso. <span class="pie">Herramientas: TRELLIS (Microsoft, MIT) en Hugging Face · Python 3.11 + numpy + Pillow · Three.js 0.170 · Chrome sin ventana para este PDF.</span></p>
+  
+</section>
+</body></html>

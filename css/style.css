@@ -509,3 +509,200 @@ body.en-cine #hud, body.en-cine #controls, body.en-cine #tactil { visibility: hi
 #game { transition: filter 0.8s ease; }
 body.recuerdo #game { filter: sepia(0.55) saturate(0.75) hue-rotate(-15deg) contrast(1.05) brightness(0.92); }
 @media (prefers-reduced-motion: reduce) { #game { transition: none; } }
+
+/* ---------- Modo operador ---------- */
+.panel-operador { position: fixed; top: 16px; right: 16px; z-index: 45; display: grid; gap: 6px; padding: 12px; width: min(300px, 90vw); max-height: 90vh; overflow: auto; }
+.panel-operador .btn { width: 100%; text-align: left; padding: 8px 12px; font-size: 14px; }
+.op-cab { font: 700 13px Cinzel, serif; letter-spacing: 0.1em; color: var(--gold); text-transform: uppercase; }
+.op-cab small { display: block; text-transform: none; letter-spacing: 0; font: 12px "Alegreya Sans", sans-serif; color: var(--ink-dim); }
+.op-pie { font-size: 12px; color: var(--ink-dim); }
+
+/* ---------- Chat simulado (Piso X) ---------- */
+.chat-sim-caja { width: min(560px, 94vw); max-height: 86vh; display: flex; flex-direction: column; gap: 10px; }
+.chat-sim-cab { display: flex; align-items: center; gap: 10px; padding-bottom: 8px; border-bottom: 1px solid rgba(212, 175, 106, 0.25); }
+.chat-sim-cab small { margin-left: auto; color: var(--ink-dim); font-size: 12px; }
+.chat-sim-avatar { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: #3a2f4a; color: #f0d9a6; font-weight: 700; }
+.chat-sim-lista { flex: 1; min-height: 160px; max-height: 46vh; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 6px 2px; }
+.chat-sim-msg { max-width: 82%; padding: 8px 12px; border-radius: 14px; font-size: 15px; line-height: 1.4; }
+.chat-sim-msg.otro { align-self: flex-start; background: #2c2638; border-bottom-left-radius: 4px; }
+.chat-sim-msg.yo { align-self: flex-end; background: #3d5a3a; border-bottom-right-radius: 4px; }
+.chat-sim-quien { display: block; font-size: 12px; font-weight: 700; color: #9fe6ff; }
+.chat-sim-nota { align-self: center; max-width: 92%; padding: 8px 12px; border-radius: 8px; font-size: 14px; line-height: 1.45; }
+.chat-sim-nota.bien { background: rgba(110, 180, 110, 0.18); border: 1px solid rgba(110, 180, 110, 0.5); }
+.chat-sim-nota.mal { background: rgba(200, 90, 90, 0.16); border: 1px solid rgba(200, 90, 90, 0.5); }
+.chat-sim-opciones { display: grid; gap: 6px; }
+.chat-sim-op { text-align: left; font-size: 14px; padding: 9px 12px; display: flex; gap: 8px; align-items: flex-start; }
+
+/* ---------- Botón de ayuda 017 (Piso X) ---------- */
+#ayuda-017 { position: fixed; right: 16px; top: 96px; z-index: 20; padding: 8px 14px; border-radius: 999px; border: 1px solid rgba(159, 230, 255, 0.6); background: rgba(12, 30, 44, 0.85); color: #dff6ff; font: 700 14px "Alegreya Sans", sans-serif; cursor: pointer; }
+#ayuda-017:hover { background: rgba(40, 90, 120, 0.9); }
+.chat-sim-op.btn { background: #2a2236; color: var(--ink); font: 500 15px/1.35 "Alegreya Sans", sans-serif; text-transform: none; letter-spacing: 0; border: 1px solid rgba(212, 175, 106, 0.35); box-shadow: none; }
+.chat-sim-op.btn:hover { background: #3a3050; border-color: rgba(212, 175, 106, 0.7); }
+.chat-sim-op .quiz-n { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; background: rgba(212, 175, 106, 0.2); color: var(--gold); }
+
+/* ---------- Editor de bloques (Piso XI) ---------- */
+.automata-caja { width: min(820px, 96vw); max-height: 92vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.automata-enunciado { margin: 0; font-size: 15px; line-height: 1.45; }
+.automata-cuerpo { display: flex; gap: 14px; flex-wrap: wrap; }
+.automata-tablero { width: 320px; height: 320px; max-width: 100%; border-radius: 8px; border: 1px solid rgba(212, 175, 106, 0.35); }
+.automata-lado { flex: 1; min-width: 260px; display: flex; flex-direction: column; gap: 8px; }
+.automata-paleta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.automata-paleta .btn { padding: 6px 10px; font: 600 13px "Alegreya Sans", sans-serif; text-transform: none; letter-spacing: 0; }
+.a-n { font-size: 13px; color: var(--ink-dim); }
+.a-n input { width: 48px; margin-left: 4px; }
+.automata-prog { flex: 1; min-height: 120px; max-height: 220px; overflow-y: auto; padding: 8px; border-radius: 8px; background: rgba(0, 0, 0, 0.25); }
+.automata-prog ul { list-style: none; margin: 0; padding-left: 14px; }
+.automata-prog .a-raiz { padding-left: 0; }
+.a-bloque { margin: 3px 0; padding: 4px 8px; border-radius: 6px; background: #2c3a52; font-size: 14px; display: block; position: relative; }
+.a-bloque.contenedor { background: #3a2c52; }
+.a-bloque.contenedor.activo { outline: 2px solid var(--gold); }
+.a-bloque ul { min-height: 10px; margin-top: 4px; border-left: 2px dashed rgba(212, 175, 106, 0.35); }
+.a-sino { display: block; margin-top: 4px; font-size: 12px; color: var(--ink-dim); }
+.a-x { position: absolute; right: 4px; top: 2px; border: 0; background: transparent; color: #e8a0a0; font-size: 16px; cursor: pointer; }
+.a-vacio { color: var(--ink-dim); font-size: 13px; margin: 0; }
+.automata-estado { font-size: 14px; min-height: 20px; }
+.a-bien { color: #8fe08f; font-weight: 700; }
+.a-mal { color: #f0a0a0; }
+.automata-codigo summary { cursor: pointer; color: var(--gold); font-size: 13px; }
+.automata-dos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
+.automata-dos pre { margin: 4px 0 0; padding: 8px; border-radius: 6px; background: #120e18; font: 12px/1.45 ui-monospace, Consolas, monospace; white-space: pre; overflow-x: auto; max-height: 160px; }
+@media (max-width: 640px) { .automata-dos { grid-template-columns: 1fr; } }
+.a-entrar { cursor: pointer; text-decoration: underline dotted rgba(212, 175, 106, 0.6); }
+
+/* ---------- La Fragua del Código (Piso XII) ---------- */
+.fragua-caja { width: min(760px, 96vw); max-height: 92vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.f-codigo { margin: 0; padding: 12px; border-radius: 8px; background: #120e18; font: 13.5px/1.6 ui-monospace, Consolas, monospace; white-space: pre; overflow-x: auto; color: #e6dcc8; }
+.f-hueco { font: inherit; background: #2c2440; color: #ffd27a; border: 1px solid rgba(212, 175, 106, 0.6); border-radius: 4px; padding: 0 2px; }
+.f-hueco.mal { border-color: #e06060; background: #4a2020; }
+.f-consola { padding: 8px 10px; border-radius: 8px; background: rgba(0, 0, 0, 0.3); font-size: 14px; }
+.f-consola pre { margin: 6px 0 0; font: 13px/1.5 ui-monospace, Consolas, monospace; color: #9fe6a0; }
+.f-consola ul { margin: 6px 0 0; padding-left: 18px; }
+.f-csv pre { margin: 6px 0 0; padding: 8px; border-radius: 6px; background: #0e1410; font: 12.5px/1.5 ui-monospace, Consolas, monospace; color: #b8e0b8; }
+.f-csv summary { cursor: pointer; color: var(--gold); font-size: 13px; }
+.placa-cuerpo { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
+.placa-leds { display: grid; grid-template-columns: repeat(5, 36px); gap: 6px; padding: 10px; border-radius: 8px; background: #0c0a12; margin-top: 6px; }
+.placa-leds.mini { grid-template-columns: repeat(5, 16px); gap: 4px; }
+.placa-leds .led, .placa-leds i { width: 36px; height: 36px; border-radius: 50%; border: 1px solid #3a3050; background: #1e1828; cursor: pointer; display: block; }
+.placa-leds i { width: 16px; height: 16px; cursor: default; }
+.placa-leds .on { background: #ff5a4a; box-shadow: 0 0 10px #ff5a4a; border-color: #ff8a7a; }
+
+/* ---------- El Observatorio (Piso XIII) ---------- */
+.observatorio-caja { width: min(820px, 96vw); max-height: 92vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.o-graf { width: 300px; height: 300px; max-width: 100%; border-radius: 8px; border: 1px solid rgba(212, 175, 106, 0.35); cursor: pointer; }
+.o-ley { display: flex; flex-wrap: wrap; gap: 10px; font-size: 13px; }
+.o-ley i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
+.o-ejes { margin: 0; font-size: 13px; color: var(--ink-dim); }
+.sql-tablas { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; }
+.sql-tablas table, .sql-resultado table { border-collapse: collapse; margin-top: 4px; }
+.sql-tablas th, .sql-tablas td, .sql-resultado th, .sql-resultado td { border: 1px solid rgba(212, 175, 106, 0.25); padding: 2px 8px; text-align: left; }
+.sql-tablas th, .sql-resultado th { background: rgba(212, 175, 106, 0.12); }
+.sql-reto { margin: 0; font-size: 15px; }
+.sql-entrada { width: 100%; box-sizing: border-box; font: 14px/1.5 ui-monospace, Consolas, monospace; background: #120e18; color: #e6dcc8; border: 1px solid rgba(212, 175, 106, 0.4); border-radius: 8px; padding: 8px; resize: vertical; }
+.sql-resultado { font-size: 13px; min-height: 24px; }
+.sql-pista code { font: 13px ui-monospace, Consolas, monospace; color: #ffd27a; }
+.creditos { display: block; margin-top: 14px; font-size: 13px; line-height: 1.6; color: var(--ink-dim); max-width: 760px; margin-left: auto; margin-right: auto; }
+.creditos b { color: var(--gold); }
+
+/* ---------- Preguntas vivas: rayo, racha, confeti y reacciones ---------- */
+#quiz .modal-card { position: relative; overflow: hidden; }
+#quiz .modal-card.entra { animation: cartaSalta 0.38s cubic-bezier(.2, 1.4, .4, 1); }
+@keyframes cartaSalta { from { opacity: 0; transform: translateY(18px) scale(0.94); } }
+#quiz .modal-card.entra .quiz-opt { animation: opcionEntra 0.32s ease-out backwards; }
+#quiz .modal-card.entra .quiz-opt:nth-child(2) { animation-delay: 0.06s; }
+#quiz .modal-card.entra .quiz-opt:nth-child(3) { animation-delay: 0.12s; }
+#quiz .modal-card.entra .quiz-opt:nth-child(4) { animation-delay: 0.18s; }
+@keyframes opcionEntra { from { opacity: 0; transform: translateX(-14px); } }
+#quiz .modal-card.acierto { animation: cartaBrilla 0.7s ease-out; }
+@keyframes cartaBrilla { 30% { box-shadow: 0 0 0 2px var(--good), 0 0 46px rgba(127, 220, 154, 0.55); } }
+#quiz .modal-card.fallo { animation: cartaTiembla 0.42s ease-in-out; }
+@keyframes cartaTiembla { 20%, 60% { transform: translateX(-7px); } 40%, 80% { transform: translateX(7px); } }
+
+.quiz-rayo {
+  --p: 1; position: absolute; top: 12px; right: 12px; width: 38px; height: 38px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 17px;
+  background: conic-gradient(#9fe6ff calc(var(--p) * 360deg), rgba(255, 255, 255, 0.07) 0);
+  transition: opacity 0.3s, transform 0.3s;
+}
+.quiz-rayo span { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #1a1420; }
+@property --p { syntax: '<number>'; inherits: false; initial-value: 1; }
+@keyframes rayo { from { --p: 1; } to { --p: 0; opacity: 0.35; } }
+.quiz-rayo.gana { transform: scale(1.25); box-shadow: 0 0 22px #9fe6ff; }
+.quiz-rayo.fin { opacity: 0.25; }
+
+.chapa { display: inline-block; margin: 0 2px 4px; padding: 2px 9px; border-radius: 999px; font: 700 13px 'Alegreya Sans', sans-serif; animation: chapaSalta 0.45s cubic-bezier(.2, 1.6, .4, 1) backwards; }
+.chapa.rayo { background: rgba(159, 230, 255, 0.16); color: #bff0ff; border: 1px solid rgba(159, 230, 255, 0.5); }
+.chapa.racha { background: rgba(255, 160, 80, 0.16); color: #ffc58a; border: 1px solid rgba(255, 160, 80, 0.5); animation-delay: 0.12s; }
+@keyframes chapaSalta { from { opacity: 0; transform: scale(0.4); } }
+
+.confeti { position: absolute; top: -10px; width: 7px; height: 11px; border-radius: 2px; pointer-events: none; animation: confeti 1.3s ease-in forwards; }
+@keyframes confeti { to { transform: translate(var(--dx), 420px) rotate(var(--giro)); opacity: 0; } }
+
+.stat-racha .stat-value { display: inline-block; transition: color 0.3s; }
+.stat-racha.caliente .stat-value { color: #ffb066; text-shadow: 0 0 10px rgba(255, 140, 60, 0.8); }
+.stat-racha.caliente .stat-label::after { content: ' 🔥'; }
+.stat-value.bump { animation: bump 0.35s ease-out; }
+@keyframes bump { 40% { transform: scale(1.45); } }
+
+body.sin-movimiento .confeti { display: none; }
+body.sin-movimiento #quiz .modal-card.entra, body.sin-movimiento #quiz .modal-card.fallo { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  #quiz .modal-card.entra, #quiz .modal-card.fallo, .confeti, .chapa { animation: none !important; }
+  .confeti { display: none; }
+}
+
+/* barra de la serie: un segmento por prueba; se rompe al acertar */
+.quiz-serie { display: flex; gap: 5px; margin: 8px 48px 0 0; }
+.quiz-serie i { flex: 1; height: 7px; border-radius: 4px; background: linear-gradient(90deg, #8a5cff, #c8a8ff); box-shadow: 0 0 8px rgba(176, 107, 255, 0.45); transition: opacity 0.4s, transform 0.4s; }
+.quiz-serie i.actual { animation: segLate 1.2s ease-in-out infinite; }
+.quiz-serie i.rota { opacity: 0.14; box-shadow: none; transform: scaleY(0.6); }
+.quiz-serie i.golpe { animation: segRompe 0.5s ease-out; }
+.quiz-serie i.aguanta { animation: cartaTiembla 0.4s; }
+@keyframes segLate { 50% { filter: brightness(1.5); } }
+@keyframes segRompe { 0% { opacity: 1; transform: scale(1.3, 2); background: #fff; } }
+body.sin-movimiento .quiz-serie i { animation: none !important; }
+
+/* balance del piso al subir */
+.balance-piso {
+  position: fixed; left: 0; right: 0; margin: 0 auto; width: fit-content; max-width: calc(100vw - 32px); box-sizing: border-box; top: 16%; z-index: 40; min-width: min(320px, calc(100vw - 32px)); padding: 16px 26px 18px; text-align: center;
+  background: linear-gradient(180deg, rgba(30, 22, 40, 0.94), rgba(16, 12, 22, 0.94)); border: 1px solid rgba(212, 175, 106, 0.6); border-radius: 14px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.55), 0 0 30px rgba(212, 175, 106, 0.18); animation: cartaSalta 0.45s cubic-bezier(.2, 1.4, .4, 1); pointer-events: none;
+}
+.balance-piso.sale { opacity: 0; transform: translateY(-12px); transition: opacity 0.5s, transform 0.5s; }
+.bp-titulo { font-family: Cinzel, serif; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); }
+.bp-estrellas { font-size: 44px; letter-spacing: 6px; margin: 4px 0 2px; }
+.bp-estrellas span { color: rgba(255, 255, 255, 0.12); display: inline-block; }
+.bp-estrellas span.llena { color: #ffd27a; text-shadow: 0 0 18px rgba(255, 200, 90, 0.8); animation: estrella 0.5s cubic-bezier(.2, 1.8, .4, 1) backwards; }
+@keyframes estrella { from { transform: scale(0) rotate(-90deg); opacity: 0; } }
+.bp-frase { font: 600 16px 'Alegreya Sans', sans-serif; color: #f6ead0; margin-bottom: 10px; }
+.bp-datos { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; font: 14px 'Alegreya Sans', sans-serif; color: var(--ink); opacity: 0.9; }
+.bp-datos b { color: #f6ead0; }
+body.sin-movimiento .bp-estrellas span.llena { animation: none; }
+
+/* concepto nuevo en el grimorio */
+.concepto-nuevo {
+  position: fixed; right: 16px; top: 30%; z-index: 40; display: flex; gap: 14px; align-items: center; padding: 14px 20px; box-sizing: border-box; width: max-content; max-width: min(380px, calc(100vw - 32px));
+  background: linear-gradient(135deg, rgba(40, 30, 18, 0.95), rgba(22, 16, 12, 0.95)); border: 1px solid rgba(212, 175, 106, 0.7); border-radius: 12px;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.5), 0 0 24px rgba(159, 230, 255, 0.18); pointer-events: none;
+  transform-origin: right center; animation: paginaGira 0.6s cubic-bezier(.2, 1.3, .4, 1);
+}
+@keyframes paginaGira { from { opacity: 0; transform: perspective(600px) rotateY(-80deg) translateX(30px); } }
+.concepto-nuevo.sale { opacity: 0; transform: translateX(30px); transition: opacity 0.5s, transform 0.5s; }
+.cn-icono { font-size: 34px; filter: drop-shadow(0 0 8px rgba(159, 230, 255, 0.6)); }
+.cn-kicker { font-family: Cinzel, serif; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #9fe6ff; }
+.cn-titulo { font: 700 20px 'Alegreya Sans', sans-serif; color: #f6ead0; margin: 2px 0; }
+.cn-pie { font: 13px 'Alegreya Sans', sans-serif; color: var(--ink); opacity: 0.8; }
+body.sin-movimiento .concepto-nuevo { animation: none; }
+
+/* comodín de Aldric */
+.quiz-comodin {
+  margin-top: 12px; padding: 6px 12px; border-radius: 999px; cursor: pointer;
+  font: 600 14px 'Alegreya Sans', sans-serif; color: #bff0ff; background: rgba(159, 230, 255, 0.08); border: 1px dashed rgba(159, 230, 255, 0.5);
+  transition: background 0.15s, transform 0.1s;
+}
+.quiz-comodin:hover:not(:disabled) { background: rgba(159, 230, 255, 0.18); transform: translateY(-1px); }
+.quiz-comodin:disabled { cursor: default; opacity: 0.55; }
+.quiz-comodin span { color: #fff; }
+.quiz-comodin kbd { margin-left: 4px; padding: 0 5px; border: 1px solid rgba(159, 230, 255, 0.5); border-radius: 4px; font: 12px monospace; }
+.quiz-opt.tachada { text-decoration: line-through; opacity: 0.28; animation: tachar 0.35s ease-out; }
+@keyframes tachar { 0% { opacity: 1; background: rgba(159, 230, 255, 0.25); } }
+@media (max-width: 600px) { .concepto-nuevo { top: 12px; } }

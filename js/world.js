@@ -299,9 +299,15 @@ export function buildWorld(scene, fx, content) {
     world.scrolls.push({ data, group: g, glow, alive: true, dying: 0, angle: (i / content.pergaminos.length) * Math.PI * 2, bob: i * 1.7, targeted: false });
   });
   world.scrollZone = Z;
+  // el corro de pergaminos se anima: gira más rápido con cada uno que arde y se
+  // dispersa del susto si se dispara a uno legítimo (todos se mueven igual: no delata cuál es falso)
+  world.ritmo = 1;
+  world.susto = 0;
+  world.dispersar = () => { world.susto = 1; };
   world.destroyScroll = (s, fraud) => {
     s.alive = false;
     s.dying = 0.001;
+    if (fraud) world.ritmo += 0.45;
     const p = s.group.position;
     fx.big.emit(p, { count: 50, color: fraud ? 0xff7a2a : 0xffd27a, intensity: 1.3, speed: 4.5, life: 1.1, gravity: -2 });
     fx.small.emit(p, { count: 90, color: 0xffb060, intensity: 1.4, speed: 3, life: 1.6, gravity: 1.5, up: 1 });
@@ -309,11 +315,28 @@ export function buildWorld(scene, fx, content) {
 
   // ---------- Animación del mundo ----------
   const tmp = new THREE.Vector3();
+  // las antorchas responden a cada pregunta, como en las salas de los demás pisos
+  const pulso = { t: 0, ok: true, fuerza: 1 };
+  const LLAMA = new THREE.Color(0xff8a3d), ORO = new THREE.Color(0xfff0b0), FRIO = new THREE.Color(0x5a6cff);
+  world.reaccionar = (ok, racha = 1) => {
+    pulso.t = 1;
+    pulso.ok = ok;
+    pulso.fuerza = ok ? Math.min(2, 1 + racha * 0.15) : 1;
+    for (const tc of world.torches) {
+      fx.big.emit(tc.pos, ok
+        ? { count: 10 + racha * 2, color: 0xffd27a, intensity: 2.4, speed: 2.2, up: 1.5, life: 0.9, gravity: -2 }
+        : { count: 6, color: 0x6a7cff, intensity: 1.2, speed: 0.6, up: -0.4, life: 0.9 });
+    }
+  };
   world.update = (dt, t, camera) => {
+    if (pulso.t > 0) pulso.t = Math.max(0, pulso.t - dt * 0.9);
+    const k = pulso.t * pulso.t;
+    const mult = pulso.ok ? 1 + 1.4 * k * pulso.fuerza : 1 - 0.65 * k;
     for (const tc of world.torches) {
       const f = 0.82 + 0.12 * Math.sin(t * 13 + tc.seed) + 0.08 * Math.sin(t * 29 + tc.seed * 3);
-      tc.light.intensity = 42 * f;
-      tc.flame.scale.set(1, 0.85 + f * 0.3, 1);
+      tc.light.intensity = 42 * f * mult;
+      tc.light.color.copy(LLAMA).lerp(pulso.ok ? ORO : FRIO, k);
+      tc.flame.scale.set(1, (0.85 + f * 0.3) * (pulso.ok ? 1 + 0.8 * k : 1 - 0.5 * k), 1);
       tc.t -= dt;
       if (tc.t <= 0) {
         tc.t = 0.07 + Math.random() * 0.08;
@@ -344,10 +367,15 @@ export function buildWorld(scene, fx, content) {
       c.mesh.position.y = 1.8 + Math.sin(t * 2 + c.pos.x) * 0.06;
     }
 
+    world.susto = Math.max(0, world.susto - dt * 0.5);
+    const radio = 3.6 + world.susto * world.susto * 3.6;
     for (const s of world.scrolls) {
       if (!s.group.visible) continue;
-      s.angle += dt * 0.13;
-      const bobY = 1.9 + Math.sin(t * 1.3 + s.bob) * 0.15;
+      s.angle += dt * 0.13 * world.ritmo * (1 + world.susto * 2.5);
+      // con más ritmo, el corro baila: sube y baja en ola y abre y cierra el círculo
+      const ola = world.ritmo - 1;
+      const bobY = 1.9 + Math.sin(t * 1.3 + s.bob) * 0.15 + Math.sin(t * 2.2 + s.angle * 2) * 0.25 * ola;
+      const r = radio + Math.sin(t * 1.7 + s.bob) * 0.35 * ola;
       if (s.dying > 0) {
         s.dying += dt;
         const k = Math.max(0, 1 - s.dying * 1.6);
@@ -361,7 +389,7 @@ export function buildWorld(scene, fx, content) {
         s.glow.material.opacity = Math.max(0, s.glow.material.opacity - dt * 0.2);
         if (s.group.position.y > H - 0.5) s.group.visible = false;
       } else {
-        s.group.position.set(Z.x + Math.cos(s.angle) * 3.6, bobY, Z.z + Math.sin(s.angle) * 3.6);
+        s.group.position.set(Z.x + Math.cos(s.angle) * r, bobY, Z.z + Math.sin(s.angle) * r);
       }
       s.group.lookAt(camera.position.x, s.group.position.y, camera.position.z);
       const target = s.targeted ? 1.0 : 0.35;
@@ -381,6 +409,7 @@ export function buildWorld(scene, fx, content) {
   // ---------- La zona "piso1" (límites, suelo, cámara y guía del holograma) ----------
   world.zona = {
     id: 'piso1', grupo: scene, colliders: world.colliders,
+    alResponder: (ok, racha) => world.reaccionar(ok, racha),
     musica: 'torre', pisada: 'piedra', camDist: 6.5,
     niebla: { color: 0x07060b, densidad: 0.028 }, luz: { luna: 1.3, cielo: 1.1 },
     suelo(p) {

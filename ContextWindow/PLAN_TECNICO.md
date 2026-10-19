@@ -39,6 +39,7 @@ Lo hecho desde que se redactó este plan (léelo antes que el resto):
   - **Vista de la torre** al salir de la casa (relámpago y luz roja en la cima) y **rótulo de capítulo** («Piso II · La Bóveda…») en negro al entrar en cada piso (`irA(id, titulo)`).
   - Ojo al probar: en el panel del navegador en segundo plano no se dibujan fotogramas; usar `__torre.step(n)` y `__torre.cine`.
 - **Base de datos:** propuesta en `ContextWindow/PLAN_SUPABASE.md` (no implementada).
+- **Modo operador (`?operador=1`, 2026-10-05):** para revisar pisos sin pasárselos. **F2** (o el botón de la portada) abre un panel para saltar a cualquier zona con la varita y sin intros (`irOperador(id)`); **V** activa el **modo fantasma** (`ZONA_FANTASMA`: sin suelo, colisiones ni límites; Espacio sube, C baja, doble velocidad). Implica `?docente=1` (mapa con todos los pisos). Solo jugando solo; no guarda progreso.
 - **Fluidez entre misiones (2026-10-03):**
   - al romper un sello, aviso grande «✦ Sello roto · n de 3» con **Siguiente: …** (`ui.anunciarSello`, desde `crearSellos` y el Piso I);
   - al abrirse la puerta, la cámara la enseña 2,8 s (`mostrarSalida()` → `cine.mostrar(desde, mirarA, s)`);
@@ -191,11 +192,49 @@ Lo hecho desde que se redactó este plan (léelo antes que el resto):
     - se ocultan en la portada y mientras hay un diálogo, pregunta o ventana abierta.
     - Probado con la emulación táctil del navegador; falta probarlo en una tableta de verdad.
   - **Probado en equipo de 2** (anfitrión e invitado) en los pisos III (palancas), IV (enlaces), VI (altar), VII (coger obras) y VIII (abrir el cofre): el estado coincide en los dos.
-- **Para añadir el Piso IX (no pedido por ahora):**
-  1. Crear `js/contenido/piso9.js` y `js/pisos/piso9.js` con `ORIGEN (0, 0, -5600)`.
-  2. Añadirlo a `PISOS` y `CONTENIDO_PISOS` en `main.js`.
-  3. Cambiar la salida del Piso VIII a `['subir', { piso: 'piso9' }]`.
-  4. Añadirlo a `validar_contenido.mjs`.
+- **06-10-2026 · el usuario pide terminar el resto de pisos y un aspecto para el jefe final** (bucle de automejora, decisiones delegadas).
+- **Piso IX · El Tribunal de los Datos** (`js/pisos/piso9.js` + `js/contenido/piso9.js`), origen `(0, 0, -5600)`, criterios 3.2 y 3.3:
+  - Sello 1 (estrado, norte): lección `rgpd` y 6 juicios con `serieDePreguntas` (supresión, oposición, portabilidad, menores de 14, datos de salud, AEPD).
+  - Sello 2 (cofre, oeste): lección `identidad`; qué clave para cifrar y para firmar y un `orden` del trámite en sede electrónica. Al abrirlo, **firma y verifica de verdad con WebCrypto** (ECDSA P-256; si `crypto.subtle` no existe, lo simula y lo dice).
+  - Sello 3 (espejo, este): lección `huella`; la «sombra» enumera rastros **reales y locales** de la partida (nombre, lema, personaje, hora de inicio, aciertos, pantalla) y hay que decir si son huella activa o pasiva; después, el panel de privacidad.
+  - 12 preguntas de varita (3.2 y 3.3), guardianes `g9a`/`g9b`, música `boveda`, 163 *draw calls*, probado solo de principio a fin (sellos, puerta y pantalla de fin).
+- **Piso X · El Laberinto de las Sombras** (`js/pisos/piso10.js` + `js/contenido/piso10.js`), origen `(0, 0, -6300)`, criterio 3.3. **Tema sensible: `revisadoDocente: false`** (aviso en modo docente/operador hasta que un docente u orientador lo revise).
+  - Laberinto: 3 muros interiores (`MUROS`, tramos `wall` con colisiones) y niebla densa (`zona.niebla` 0,075). La guía apunta al **hueco** siguiente si el objetivo está en otra franja (`porElLaberinto`).
+  - Sombras: los modelos de Adventurers con material negro translúcido y ojos rojos (`Animador` en Idle).
+  - Sello 1 (voces, oeste): lecciones `fraudes` y `grooming` (esta individual, al llegar a esos chats) y 4 **chats simulados** (`js/mecanicas/chatVista.js`): smishing, vishing, grooming y sextorsión. Elegir mal enseña la consecuencia y deja volver a elegir.
+  - Sello 2 (ecos, este): lección `ciberacoso` y el chat del grupo de clase (ser buen testigo).
+  - Sello 3 (reloj, norte): lección `bienestar` y 4 preguntas (descanso, control en la pareja, identidad positiva, difusión de imágenes).
+  - **Botón «¿Necesitas ayuda? 017»** siempre visible en el piso (017 INCIBE, 900 20 20 10 ANAR, 112).
+  - 11 preguntas de varita; el validador comprueba que cada elección de chat tenga una respuesta buena y consecuencias. 171 *draw calls*. Probado solo de principio a fin.
+- **Piso XI · El Taller de los Autómatas** (`js/pisos/piso11.js` + `js/contenido/piso11.js`), origen `(0, 0, -7000)`, criterios 4.1 y 4.2. **Sin `js-interpreter`:** intérprete propio de bloques en `js/mecanicas/automata.js` (avanzar, girar, repetir, mientras no llegue, si hay muro delante; detecta muros, trampas y bucles infinitos; traduce a JavaScript y pseudocódigo), con pruebas en `automata.test.mjs` (que también comprueban que los niveles tienen solución y que el programa del depurador falla).
+  - Editor (`automataVista.js`): tablero 2D, paleta de bloques, programa anidado (× quita; pulsar un bloque contenedor añade dentro; «Pasar a si no»), límite de bloques por nivel y el código en JS y pseudocódigo en vivo. Devuelve el programa del jugador, y el **autómata de latón 3D** del tablero del suelo lo repite.
+  - Sello 1 (atril, oeste): lección `pensamiento` y 4 preguntas (símbolos del diagrama de flujo, `orden` de un algoritmo, descomposición).
+  - Sello 2 (tablero, centro): lección `programacion` y 3 tableros (secuencia; bucle con ≤5 bloques; mientras + si con ≤4 bloques).
+  - Sello 3 (mesa, este): lección `depuracion`, un error de sintaxis (pregunta) y un programa con error de lógica que hay que corregir en el editor.
+  - 10 preguntas de varita. Probado solo de principio a fin con clics reales en el editor.
+- **Piso XII · La Fragua del Código** (`js/pisos/piso12.js` + `js/contenido/piso12.js`), origen `(0, 0, -7700)`, criterios 4.3 y 4.4. **Sin Worker ni ejecutar código del alumno:** «código con huecos» (un desplegable por hueco) comprobado por `js/mecanicas/fragua.js` (pruebas en `fragua.test.mjs`), con la explicación de cada hueco mal puesto.
+  - Sello 1 (molde, oeste): lección `poo` (compilado/interpretado, IDE, Git, clases, objetos, herencia) y la clase `Criatura` / `Esqueleto extends Criatura` con 5 huecos (class, extends, super, new, saludar). Al acertar aparecen en la sala 3 criaturas con su nombre (Huesitos, Chispa, Tibia).
+  - Sello 2 (placa, pared norte): lección `dispositivos` (eventos, LED como datos, apps nativas/web/híbridas). Rejilla de 5 × 5 LED que genera en vivo `const RUNA = ["00100", …]`, 2 huecos (`alPulsar`, `mostrar`) y «Pulsar el botón A». La placa 3D de la pared muestra lo dibujado.
+  - Sello 3 (libro, este): lección `datos` (CSV, `split`, comentarios). El CSV al lado del código con 4 huecos (`//`, `split`, `','`, `+`); al acertar se «escribe» resumen.txt y una pregunta numérica sobre él.
+  - 10 preguntas de varita, música `forja`. Probado solo de principio a fin.
+- **Piso XIII · El Observatorio del Oráculo** (`js/pisos/piso13.js` + `js/contenido/piso13.js`), origen `(0, 0, -8400)`, criterio 4.3. **Sin `sql.js`:** mini-SQL propio (`js/mecanicas/minisql.js`: SELECT con columnas o *, JOIN … ON, WHERE con AND, UPDATE … SET … WHERE; errores explicados) y clasificador del centroide más cercano (`js/mecanicas/oraculo.js`); pruebas en `observatorio.test.mjs` (incluye que el oráculo sesgado falla, que con ejemplos variados acierta y que «más de lo mismo» no lo arregla).
+  - Sello 1 (orbe, centro): lección `ia`; gráfico 2D (tamaño × brillo de ojos) con la frontera de decisión coloreada. Empieza sesgado (2 de 8); hay que añadir ejemplos representativos de la reserva hasta 7 de 8.
+  - Sello 2 (consola, oeste): lección `basesDatos`; tablas celdas y prisioneros y 3 retos (SELECT *, JOIN + WHERE para encontrar a Aldric en la **celda 7, la cima**, UPDATE … WHERE id = 7). Un UPDATE sin WHERE abre todas las celdas, lo explica y las vuelve a cerrar.
+  - Sello 3 (mapa, este): lección `bigData` (5 V, alucinaciones, Reglamento Europeo de IA, y que el juego se hizo con ayuda de IA) y 5 preguntas.
+  - 10 preguntas de varita, cúpula de estrellas y orbe con anillos. Probado solo de principio a fin con consultas escritas a mano.
+- **La Cima · El Trono de Morvath** (`js/pisos/cima.js` + `js/contenido/cima.js`), origen `(0, 0, -9100)`, criterio 4.5 y repaso de los cinco bloques. **El juego ya se puede terminar de principio a fin y cubre los 13 criterios** (223 preguntas, 52 lecciones).
+  - Azotea al aire libre (zona propia, sin `crearSalaDeTorre`): suelo circular de radio 15, almenas fundidas en una malla, luna y estrellas; `suelo()`/`limitar()` circulares. `sinHolograma: true` oculta el holograma de Aldric (aquí está el de verdad, en una jaula).
+  - **Aspecto del jefe:** Morvath es el modelo del mago (`aldric.glb`, el reflejo oscuro de su amigo) con una **paleta propia negra y carmesí** generada por `herramientas/paleta_morvath.py` (`assets/texturas/paleta_morvath.png`), 2,7 m de alto, corona luminosa, aura roja y partículas. Sin descargas.
+  - Sello de la cima (visor, oeste): lección `realidad` (RV, RA, RM, XR, marcador, anclas, CoSpaces/Unity/A-Frame) y 4 preguntas; al terminar aparecen tres runas de puntos débiles sobre Morvath.
+  - **Duelo** (individual en equipo, como el del Piso VIII): 5 escudos, uno por bloque: binario (pregunta numérica), bulo, phishing, **arreglar el autómata de Morvath** (editor del Piso XI) e IA con sesgo. Sin castigo: si se falla, una burla y se repite.
+  - Final: Morvath se arrodilla, la jaula se abre, Aldric habla y `fin` muestra «La torre es libre · Fin» con **créditos** (KayKit CC0, Three.js, PeerJS, tipografías, IA).
+  - 112 *draw calls*. Probado solo de principio a fin.
+- **Automejora (06-10-2026):**
+  - Música nueva según la sección 13: `tribunal` (IX, fa menor solemne), `sombras` (X, bordón grave y latidos), `observatorio` (XIII, pads agudos) y `cima` (pulso de tambor y acordes épicos). Tras vencer a Morvath vuelve a sonar `parque`: el camino a casa.
+  - **Probado en equipo de 2 en la Cima:** el visor (lo rompe el invitado) se sincroniza y, al vencer el invitado a Morvath, el final y la pantalla «La torre es libre» llegan a los dos.
+  - Barrido de llamadas de dibujo: IX 151, X 159, XI 156, XII 150, XIII 133, Cima 112; ningún error al cargar.
+- **La salida del último piso construido lleva al final:** si `subir` apunta a un piso que no existe en `PISOS`, `main.js` lo cambia por `fin`. El Piso VIII ahora sube al IX.
+- **Para añadir un piso nuevo:** crear `js/contenido/pisoN.js` y `js/pisos/pisoN.js` (copiar el Piso VII como plantilla), añadirlo a `PISOS` y `CONTENIDO_PISOS` en `main.js`, a `validar_contenido.mjs` y a `contenido/guardianes.js`, y apuntar la salida del piso anterior a `['subir', { piso: 'pisoN' }]`.
 - La pantalla de fin aparece al terminar el último piso construido. Cada piso lleva al siguiente por la escalera.
 
 ---
@@ -1257,3 +1296,105 @@ T.irA('piso1'); T.step(120);
 ```
 
 *Fin del documento.*
+
+## Preguntas vivas (capa común a las ~220 preguntas)
+
+- **⚡ Rayo:** anillo de 12 s (22 s en las escritas). Si se acierta antes de que se vacíe: +5 de saber. Ir lento no tiene castigo.
+- **🔥 Racha:** contador en el HUD. Desde 3 aciertos seguidos suma +2, +4… (hasta +10). A los 5 y a los 10 sale un aviso, y cada 3 seguidos el jugador y Aldric celebran. Un fallo la pone a 0.
+- **Reacciones:** frases variadas en lugar de «¡Correcto!» / «No exactamente.» (`VIVAS` y `ANIMOS` en `ui.js`).
+- **Efectos:**
+  - la carta entra con un salto y las opciones aparecen escalonadas;
+  - al acertar: brillo y confeti, y chispas 3D alrededor del jugador;
+  - al fallar: la carta tiembla y la cámara da una sacudida leve.
+  - La opción «Reducir el movimiento» y `prefers-reduced-motion` desactivan el confeti, la sacudida y los saltos.
+- **Código:**
+  - `ui.prepararCarta` y `ui.reaccionar`;
+  - en `main.js`, `ui.onRespuesta(ok, {ms, limite})` devuelve `{racha, rapido, bonusRacha}`.
+- **El mundo responde:** `zona.alResponder?.(ok, racha)`.
+  - Las salas de la torre (pisos II–XIII) lo heredan de `sala-torre.js`: las antorchas se avivan doradas y echan chispas al acertar (más fuerte con más racha) y bajan a un azul frío al fallar.
+  - En la Cima, durante el duelo, Morvath acusa cada acierto (golpe y chispas doradas) y se crece con cada fallo (humo violeta).
+  - Un piso puede sustituir `alResponder` por su propia reacción.
+- **Series como asaltos:** `serieDePreguntas` pone `ui.barraSerie`.
+  - Encima de la pregunta aparece una barra de sello con un segmento por prueba: los aciertos la van rompiendo y el segmento actual late.
+  - Al fallar, el segmento aguanta (tiembla) y Aldric despide con una frase variada.
+  - Se quitó el doble sonido de acierto: ya lo pone `onRespuesta`.
+- **Varita cargada por la racha:** con 3 aciertos seguidos el hechizo sale *potenciado* (×1.6) y con 5, *desatado* (×2.2).
+  - Es más grande, con más estela, una explosión con destello blanco y una sacudida leve.
+  - `spells.cast(..., potencia)`; la potencia viaja en el mensaje `hechizo` para que los compañeros lo vean igual.
+- **Piso I · corro de pergaminos vivo:** cada falso que arde acelera el corro (`world.ritmo` +0.45) y lo hace bailar en ola. Un disparo a un legítimo lo dispersa del susto (`world.dispersar`). Todos se mueven igual, para no delatar cuál es falso, y avisos dicen cuántos quedan.
+- **Guardianes con personalidad (pisos II–VII):**
+  - Al acercarse el jugador a menos de 4,5 m, el guardián se para, se gira hacia él, hace un amago de ataque y suelta una pulla en un bocadillo. Las pullas se ríen de los errores que enseña la torre: «¿Vuestra contraseña es 1234?».
+  - Vuelven a hacerlo cada 12–18 s como mucho.
+  - Al ser desterrados, se despiden con humor («Error 404: guardián no encontrado…»).
+  - Todo esto es local a cada jugador, como la patrulla.
+- **Corrección:** el susto de los pergaminos ahora abre el corro +3,6 m y dura unos 2 s.
+- **Balance del piso con estrellas:** al subir de piso aparece una carta durante 6 s, sin bloquear el juego.
+  - Muestra de ★ a ★★★, el % de aciertos, la mejor racha, las respuestas ⚡ rápidas y los minutos.
+  - Hacen falta ★★★ con un 85 % o más y al menos 3 aciertos; ★★ con un 60 % o más.
+  - Datos en `state.balance` (los alimenta `onRespuesta`); se pinta con `ui.balancePiso`.
+  - Invita a rejugar un piso para sacar las tres.
+- **Aprender se celebra:** al aprender un concepto, una página entra girando a la derecha («Nuevo concepto en el grimorio», con el título) y salen chispas azules alrededor del jugador. Sustituye al aviso plano, también en los pisos II, IV, VII, VIII y X.
+- **Aldric gesticula al hablar:** con `ui.onPagina`, en cada página hace un gesto y, si exclama, a veces lo celebra.
+- **Piso I · reloj de fuerza bruta en el altar:** cada cristal ofrecido dice cuánto tardaría un ordenador en adivinar esa contraseña.
+  - Ejemplos: «123456789», al instante; «maria2009», unos 2 segundos; «Gato-Luna-Tostada-47!», más que la edad del universo.
+  - Lo calcula `js/mecanicas/fuerza.js`, con 10¹⁰ intentos/s y el atacante probando primero lo fácil: las más usadas, el diccionario y palabra+número; después, la fuerza bruta.
+  - Pruebas en `fuerza.test.mjs`; en total pasan 68.
+- **Rachas en equipo:** al llegar a 3, 5, 10… seguidas se envía un `hito` (`red.enviarHito`).
+  - El anfitrión le pone el nombre, como en el chat, para que nadie se haga pasar por otro, y lo reenvía.
+  - El resto ve un aviso («🔥 Ana lleva 5 aciertos seguidos. ¡Imparable!») y un bocadillo sobre ese compañero.
+- **Las criaturas reaccionan a las respuestas:**
+  - Los guardianes a menos de 14 m se burlan (animación *Taunt*, «¡Ja! ¡Fallo!») cuando el jugador falla. Cuando acierta, lo acusan (*Block_Hit*, «¡Ay!», un instante aturdidos).
+  - Al ver al jugador, los guardianes hacen *Taunt* en vez del amago de ataque.
+  - En el Piso XII, las criaturas forjadas vitorean (*Cheer*, escalonado) cada acierto y se cubren con cada fallo.
+  - Se encadena con la reacción de las antorchas de la sala.
+- **🪄 Comodín de Aldric:** en las preguntas de 3 o más opciones aparece un botón (o la tecla **C**) que tacha todas las falsas menos una.
+  - Se tiene 1 al empezar y cada piso nuevo garantiza al menos 1.
+  - Cada racha múltiplo de 5 regala otro, hasta un máximo de 3.
+  - Las opciones tachadas no se pueden elegir. Datos: `ui.comodines` y `ui.onComodin`.
+- **Corrección:** el altar de cristales y los pergaminos del Piso I ya cuentan en el balance con estrellas. Antes solo contaba el cartel y el piso no podía dar ★★★.
+- **Regresión del Piso I (con preguntas simuladas):** lección, cartel, altar (un fallo y un acierto), pergaminos, puerta y subida con balance (5/6, ★★) y llegada al Piso II. Todo bien.
+- **✨ La chispa de Morvath** (`js/chispa.js`): en los pisos I–XIII, cada 2,5–4 minutos de juego (sin contar diálogos ni ventanas) aparece un fuego fatuo a 5 m del jugador.
+  - Revolotea en lazos y huye un poco del jugador, dentro de los límites de la sala.
+  - Al alcanzarlo sale una pregunta relámpago de repaso. Si se acierta da +15 de saber y, la mitad de las veces, un 🪄 comodín.
+  - Si nadie lo caza, parpadea y se apaga a los 25 s.
+  - No aparece en la Cima ni fuera de la torre, ni antes de haber aprendido algo. Es local a cada jugador y no usa luces nuevas.
+- **Trofeos en la pantalla final:** 🔥 mejor racha de la partida, ★ estrellas sumadas de todos los pisos superados (incluido el último, «x / máximo») y ✨ chispas cazadas. Datos en `state.trofeos`; el cálculo de estrellas está en `estrellasDe()` de `ui.js`, que lo comparten el balance y el final.
+- **La racha suena:** `sonido.acierto(racha, rapido)` sube un peldaño de escala pentatónica con cada acierto seguido (tope: una décima por encima). Con ⚡ añade un destello agudo y a las 5 y 10 seguidas suena un acorde. Las demás llamadas a `acierto()` no cambian.
+- **Corrección de diseño (móvil):**
+  - La carta de balance ya no usa `translateX(-50%)`, porque la animación de entrada se lo quitaba y la carta daba un salto lateral. Ahora va centrada con márgenes automáticos y cabe en 375 px.
+  - La página de concepto nuevo mide como mucho el ancho de la pantalla menos 32 px y en móvil sale arriba.
+- **Piso X · las sombras se alimentan de los errores:** cada acierto las encoge un 10 % (mínimo 55 %), con un golpe y chispas claras, y cada fallo las hace crecer un 8 % (máximo 130 %), con transición suave. Refuerza el mensaje del piso: plantar cara (saber qué hacer) debilita el acoso.
+- **Piso XIII · el cielo responde:** cada acierto lanza estrellas fugaces por la cúpula (1 a 3 según la racha) y hace brillar las estrellas. Cada fallo hace parpadear el orbe del oráculo en rojo un instante.
+- **Piso IX · la balanza pesa vuestras respuestas:** se inclina hacia un lado con cada acierto (chispas doradas) y hacia el otro con cada fallo, y vuelve poco a poco al centro.
+- **Piso XI · el autómata sigue la partida:** con cada acierto da un saltito con la cabeza y gira la llave muy deprisa; con cada fallo niega con la cabeza. El ojo ahora es hijo de la cabeza.
+- **Piso I también responde:** sus antorchas (de `world.js`, que no usa la sala común) se avivan doradas al acertar y bajan a azul al fallar, igual que en las salas de los demás pisos (`world.reaccionar`). Con esto, los 13 pisos y la Cima reaccionan a cada respuesta.
+- **Prueba en equipo real (2 pestañas, PeerJS):** los `hito` llegan en las dos direcciones, del invitado al anfitrión («🔥 Beto lleva 3 aciertos seguidos») y del anfitrión al invitado (3 y 5, «¡Imparable!»), con el nombre puesto por el anfitrión.
+- **🪄 Comodín también en las preguntas escritas:**
+  - Números: un rango redondo que contiene la respuesta, sin bajar de 0.
+  - Palabras: la primera letra y la longitud.
+  - Ordenar: Aldric coloca la primera pieza (también con **C**).
+  - En las de escribir, la tecla C no activa el comodín para no interferir al teclear.
+- **Informe para el profesor:** el nuevo bloque «Esta sesión» muestra la mejor racha, las estrellas, las preguntas relámpago acertadas y los **comodines usados**, con una nota sobre cómo afectan los comodines a los porcentajes.
+  - Se corrige la nota antigua que decía que faltaban pisos: ya están todos los criterios, del 1.1 al 4.5.
+  - Nueva prueba en `informe.test.mjs`; en total pasan 69.
+- **⚠ Error grave corregido (ya estaba subido en 9ebaf31):** el Piso VIII no cargaba. Tenía `const destino` (vector de las rondas) y `function destino()` (la guía de misión) en el mismo ámbito, y el navegador lo rechaza como SyntaxError.
+  - El vector se renombra a `rumbo`.
+  - `node --check` no lo detectaba porque, sin package.json, trata los .js como scripts. Nueva prueba `herramientas/pruebas/sintaxis.test.mjs`: comprueba todos los módulos de js/ como módulos ES. En total pasan 70.
+- **Barrido final:** los pisos I–XIII y la Cima cargan y reaccionan a aciertos y fallos sin errores.
+
+## Personaje nuevo: el Monstruo (2026-10-19)
+
+Personaje jugable generado a partir de una imagen. Todo está en `herramientas/monstruo/`, y el proceso explicado en `Como_se_hizo_el_monstruo.pdf` (3 páginas).
+1. `generar_3d.py`: TRELLIS en el Space gratuito de Hugging Face (trellis-community/TRELLIS). Usa el protocolo de cola de Gradio 5 (`queue/join` + SSE) con `urllib`: abre sesión (fn 4), quita el fondo (fn 8) y genera el GLB (fn 11). Sin instalar nada y con pocos MB de RAM en local.
+2. `glb_a_obj.py`: convierte el GLB a OBJ + MTL + PNG (solo numpy). Resultado: `monstruo.obj` con 9.993 vértices y 15.754 caras.
+3. `analizar.py`: corta la malla en rodajas para colocar las articulaciones.
+4. `construir_rig.py`:
+   - 13 huesos, más `handslotr`/`handslotl` para la varita;
+   - pesos de piel por regiones con fundido suave en las articulaciones;
+   - 16 animaciones procedurales con nombres de KayKit (Idle, Walking_A, Running_A, Jump_Idle, Cheer, Hit_A/B, Interact, Spellcast_Shoot, Spellcasting, Unarmed_Melee_Attack_Punch_A, Death_A, Dodge_Backward, Sit_Floor_Idle, Sit_Floor_StandUp, Taunt).
+   - Salida: `assets/modelos/monstruo.glb` (0,95 MB).
+5. Juego:
+   - `personajes.js`: entrada `monstruo`, con `paleta: null` porque trae su propia textura.
+   - `armas.js`: `natural: true` y quinto tipo de ataque, `cabezazo` (2,1 m, 90°, 0,65 s); efecto en `ataques.js` y sonido en `audio.js`.
+   - `visor.html`: visor de poses.
+- Ojo al capturar poses: pintar varias poses en el mismo fotograma deja triángulos estirados, porque la GPU reutiliza los huesos de la pose anterior. Hay que capturar una pose por fotograma.

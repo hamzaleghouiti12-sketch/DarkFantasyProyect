@@ -26,6 +26,9 @@ const ACORDES = {
   criptas: [[38, 44, 47, 50], [39, 45, 48, 51]],                                      // disminuidos
   scriptorium: [[38, 50, 53, 57], [43, 50, 55, 59], [36, 48, 52, 55], [45, 52, 57, 60]], // Rem Sol Do Lam (dórico)
   parque: [[50, 57, 62, 66], [55, 59, 62, 67], [47, 54, 59, 62], [45, 52, 57, 61]],      // Re Sol Sim La (mayor: nuestro mundo)
+  tribunal: [[41, 48, 53, 56], [37, 44, 49, 53], [39, 46, 51, 55], [36, 43, 48, 52]],    // Fam Reb Mib Do (solemne)
+  observatorio: [[62, 69, 74, 78], [67, 71, 74, 79], [64, 69, 73, 76], [66, 69, 74, 81]], // pads agudos y abiertos
+  cima: [[38, 50, 53, 57], [34, 46, 50, 53], [41, 48, 53, 57], [33, 45, 49, 52]],         // Rem Sib Fa La (épico)
 };
 const PENTA = [62, 65, 67, 69, 72, 74, 77]; // re menor pentatónica para la caja de música
 const DORICO = [62, 64, 65, 67, 69, 71, 72, 74]; // re dórico (scriptorium)
@@ -183,9 +186,15 @@ export class Sonido {
     this.tono(300, 0.5, { tipo: 'square', vol: 0.04, hasta: 70, filtro: 1200 });
   }
 
-  acierto() {
-    this.campana(NOTA(76), { vol: 0.13 });
-    this.campana(NOTA(81), { vol: 0.13, cuando: 0.11 });
+  // con racha, cada acierto suena un peldaño más arriba (escala pentatónica);
+  // rápido añade un destello agudo y las rachas de 5 y 10, un acorde
+  acierto(racha = 1, rapido = false) {
+    const ESCALA = [0, 2, 4, 7, 9, 12, 14, 16]; // tope en una décima: más arriba chirría
+    const sube = ESCALA[Math.min(ESCALA.length - 1, Math.max(0, racha - 1))];
+    this.campana(NOTA(76 + sube), { vol: 0.13 });
+    this.campana(NOTA(81 + sube), { vol: 0.13, cuando: 0.11 });
+    if (rapido) this.campana(NOTA(93 + sube / 2), { vol: 0.05, cuando: 0.2, dur: 0.6 });
+    if (racha === 5 || racha === 10) [72, 76, 79, 84, 88].forEach((n, i) => this.campana(NOTA(n + (racha === 10 ? 5 : 0)), { vol: 0.08, dur: 1.8, cuando: 0.25 + i * 0.07 }));
   }
 
   fallo() {
@@ -247,6 +256,9 @@ export class Sonido {
     } else if (tipo === 'giro') { // barrido largo y grave
       this.ruido(0.55, { freq: 300, hasta: 1400, q: 1.2, vol: 0.16, ataque: 0.15 });
       this.tono(90, 0.4, { vol: 0.1, cuando: 0.25 });
+    } else if (tipo === 'cabezazo') { // ñam: golpe sordo y chasquido de dientes
+      this.tono(140, 0.18, { tipo: 'triangle', vol: 0.16, hasta: 70 });
+      this.ruido(0.06, { freq: 2200, q: 3, vol: 0.12, cuando: 0.12 });
     } else if (tipo === 'punalada') { // dos silbidos cortos
       this.ruido(0.1, { freq: 2600, hasta: 5000, q: 2, vol: 0.1 });
       this.ruido(0.1, { freq: 2600, hasta: 5000, q: 2, vol: 0.1, cuando: 0.18 });
@@ -434,6 +446,35 @@ export class Sonido {
         this.ruido(0.06, { tipo: 'lowpass', freq: 500, vol: golpe % 4 === 1 ? 0.05 : 0.025, destino: salida });
         if (golpe % 8 === 5) this.campana(NOTA(69), { vol: 0.025, dur: 1.2, destino: salida });
       }, 667);
+    } else if (nombre === 'tribunal') {
+      // solemne: acordes lentos en fa menor y una campana grave, como un mazo de juez
+      bordon(NOTA(29), 'sine', 0.07, 300);
+      cada(() => acorde(ACORDES.tribunal[i++ % 4], 9, 0.03, 700), 9000);
+      cada(() => this.campana(NOTA(41), { vol: 0.05, dur: 5, destino: salida }), () => 11000 + Math.random() * 4000);
+    } else if (nombre === 'sombras') {
+      // casi silencio: un bordón muy grave, latidos y algún susurro lejano
+      bordon(NOTA(24), 'sine', 0.09, 160);
+      cada(() => {
+        this.tono(55, 0.12, { vol: 0.08, hasta: 40, destino: salida });
+        this.tono(55, 0.12, { vol: 0.06, hasta: 40, cuando: 0.28, destino: salida });
+      }, 1300);
+      cada(() => this.ruido(1.2, { freq: 1400 + Math.random() * 900, hasta: 700, q: 10, vol: 0.012, ataque: 0.4, destino: salida }), () => 7000 + Math.random() * 6000);
+    } else if (nombre === 'observatorio') {
+      // etéreo: pads agudos lentos y destellos de campana muy espaciados
+      bordon(NOTA(50), 'sine', 0.03, 900);
+      cada(() => acorde(ACORDES.observatorio[i++ % 4], 12, 0.02, 2400), 12000);
+      cada(() => this.campana(NOTA([74, 78, 81, 86][Math.floor(Math.random() * 4)]), { vol: 0.03, dur: 5, destino: salida }), () => 2500 + Math.random() * 3500);
+    } else if (nombre === 'cima') {
+      // épico: pulso de tambor, acordes que avanzan y fanfarria de campanas
+      bordon(NOTA(26), 'sawtooth', 0.04, 220);
+      cada(() => acorde(ACORDES.cima[i++ % 4], 4, 0.028, 900), 4000);
+      let pulso = 0;
+      cada(() => {
+        pulso++;
+        this.tono(70, 0.16, { vol: pulso % 4 === 0 ? 0.09 : 0.05, hasta: 45, destino: salida });
+        if (pulso % 2 === 0) this.ruido(0.05, { freq: 1800, q: 1.5, vol: 0.015, destino: salida });
+      }, 500);
+      cada(() => { for (const [k, n] of [62, 65, 69].entries()) this.campana(NOTA(n), { vol: 0.03, dur: 2, cuando: k * 0.18, destino: salida }); }, 8000);
     } else if (nombre === 'forja') {
       // grave, con golpes de yunque (ruido y tono corto) cada 2 s y el rugido del horno
       bordon(NOTA(26), 'sawtooth', 0.04, 200);

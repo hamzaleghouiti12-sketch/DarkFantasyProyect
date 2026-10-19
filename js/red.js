@@ -206,6 +206,16 @@ export class Red {
         this.alMensaje(limpio, conn.peer);
         return;
       }
+      if (msg.t === 'hito') {
+        // rachas de un compañero: como en el chat, el nombre lo pone el anfitrión
+        const j = this.jugadores.find((x) => x.id === conn.peer);
+        const n = Math.round(+msg.n);
+        if (!j || !(n >= 3 && n <= 999)) return;
+        const limpio = { t: 'hito', id: j.id, nombre: j.nombre, n };
+        this.difundir(limpio, conn.peer);
+        this.alMensaje(limpio, conn.peer);
+        return;
+      }
       // posiciones y hechizos se reenvían tal cual al resto
       if (msg.t === 'pos' || msg.t === 'hechizo') this.difundir(msg, conn.peer);
       this.alMensaje(msg, conn.peer);
@@ -307,6 +317,14 @@ export class Red {
     if (this.esHost) this.difundir(m);
     else if (this.host?.open) this.host.send({ t: 'chat', texto: m.texto });
     return m;
+  }
+
+  // una racha propia para que la vea el equipo
+  enviarHito(n) {
+    if (!this.activa) return;
+    const yo = this.jugadores.find((j) => j.id === this.miId);
+    if (this.esHost) this.difundir({ t: 'hito', id: this.miId, nombre: yo?.nombre ?? 'Anfitrión', n });
+    else if (this.host?.open) this.host.send({ t: 'hito', n });
   }
 
   // del invitado al anfitrión; del anfitrión a todos

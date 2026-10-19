@@ -273,7 +273,7 @@ export async function construir(ctx) {
     await ui.dialogue(l.paginas);
     if (!aprendido(id)) {
       estado.learned.add(id);
-      ui.toast(`Nuevo concepto en el grimorio: **${l.titulo}** (G)`, 'learn', 4200);
+      ui.conceptoNuevo(l.titulo);
     }
   }
   async function premio(texto, rot, pos) {

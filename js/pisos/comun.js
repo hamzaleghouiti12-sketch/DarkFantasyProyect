@@ -39,16 +39,29 @@ export function crearSellos(ctx, sala, contenido, claves, opciones = {}) {
 
 // Serie de preguntas que cada jugador hace en su pantalla. Si falla, la próxima
 // vez sigue desde esa pregunta. Devuelve true cuando las ha acertado todas.
+// Cada serie es un pequeño asalto: una barra de sello con un segmento por prueba
+// que se rompe con cada acierto (ui.barraSerie la pinta encima de la pregunta).
+const VUELTA = [
+  'Casi. Repasad (**G** abre el grimorio) y volved cuando queráis: seguiréis desde esta prueba.',
+  'El sello aguanta… por ahora. Un vistazo al grimorio (**G**) y volvéis: lo roto, roto se queda.',
+  'Esa se os resistió. Lo que ya habéis roto no se recompone: volved y seguís desde aquí.',
+];
 export async function serieDePreguntas(ctx, pasos, titulo, progreso) {
-  for (let i = progreso.paso; i < pasos.length; i++) {
-    const ok = await ctx.ui.quiz(pasos[i], `${titulo} · prueba ${i + 1} de ${pasos.length}`);
-    ctx.record(ok, pasos[i].criterio);
-    progreso.paso = i;
-    if (!ok) {
-      await ctx.ui.dialogue(['Casi. Repasad (**G** abre el grimorio) y volved cuando queráis: seguiréis desde esta prueba.']);
-      return false;
+  const ui = ctx.ui;
+  try {
+    for (let i = progreso.paso; i < pasos.length; i++) {
+      ui.barraSerie = { titulo, total: pasos.length, hechos: i };
+      const ok = await ui.quiz(pasos[i], `${titulo} · prueba ${i + 1} de ${pasos.length}`);
+      ctx.record(ok, pasos[i].criterio);
+      progreso.paso = i;
+      if (!ok) {
+        ui.barraSerie = null;
+        await ui.dialogue([VUELTA[Math.floor(Math.random() * VUELTA.length)]]);
+        return false;
+      }
     }
-    ctx.sonido.acierto();
+  } finally {
+    ui.barraSerie = null;
   }
   progreso.paso = pasos.length;
   return true;

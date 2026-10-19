@@ -229,7 +229,7 @@ export async function construir(ctx) {
       const l = C.lecciones.actualizaciones;
       await ui.dialogue(l.paginas);
       estado.learned.add('actualizaciones');
-      ui.toast(`Nuevo concepto en el grimorio: **${l.titulo}** (G)`, 'learn', 4200);
+      ui.conceptoNuevo(l.titulo);
     }
     if (!(await serieDePreguntas(ctx, C.parche.pasos, 'El taller del parche', parche))) return;
     parche.hecho = true;
@@ -363,7 +363,7 @@ export async function construir(ctx) {
 
   // ---------- Animación ----------
   let t = 0;
-  const destino = new THREE.Vector3();
+  const rumbo = new THREE.Vector3(); // siguiente punto de la ronda de cada criatura
   const tmp = new THREE.Vector3();
   let avisoAturdir = false;
   function actualizar(dt, tt) {
@@ -406,10 +406,10 @@ export async function construir(ctx) {
         const a = t * 1.2 + b.zombi * Math.PI;
         xz = [necro.g.position.x - ORIGEN.x + Math.cos(a) * 1.4, necro.g.position.z - ORIGEN.z + Math.sin(a) * 1.4];
       } else xz = b.posicion(b.reloj);
-      destino.set(ORIGEN.x + xz[0], 0, ORIGEN.z + xz[1]);
-      const dx = destino.x - b.g.position.x, dz = destino.z - b.g.position.z;
+      rumbo.set(ORIGEN.x + xz[0], 0, ORIGEN.z + xz[1]);
+      const dx = rumbo.x - b.g.position.x, dz = rumbo.z - b.g.position.z;
       if (Math.hypot(dx, dz) > 0.01) b.g.rotation.y = Math.atan2(dx, dz);
-      b.g.position.copy(destino);
+      b.g.position.copy(rumbo);
       if (b.id === 'spyware') b.g.rotation.y = Math.atan2(j.x - b.g.position.x, j.z - b.g.position.z); // no os quita ojo
       if (!b.alive) {
         b.fuera = Math.min(1, b.fuera + dt * 1.5);
@@ -467,7 +467,7 @@ export async function construir(ctx) {
         ui.toast('¡Criatura aturdida! Las armas no destierran malware: ahora apuntadle con la varita (**F**).', 'info', 5000);
       }
     },
-    salida: { abierta: () => S.estado.puerta, z: sala.salidaZ, accion: ['fin', { piso: P }] },
+    salida: { abierta: () => S.estado.puerta, z: sala.salidaZ, accion: ['subir', { piso: 'piso9' }] },
   });
   zona.grupo.visible = false;
 

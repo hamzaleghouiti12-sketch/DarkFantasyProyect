@@ -21,16 +21,17 @@ export class SpellSystem {
     this.geo = new THREE.SphereGeometry(1, 16, 12);
   }
 
-  cast(spell, from, target, fallback, onHit) {
+  // potencia (1 normal; más con la racha de aciertos): proyectil, estela y explosión más grandes
+  cast(spell, from, target, fallback, onHit, potencia = 1) {
     const mat = new THREE.MeshBasicMaterial();
-    mat.color.setRGB(...spell.rgb);
+    mat.color.setRGB(...spell.rgb.map((c) => c * (0.8 + potencia * 0.2)));
     const mesh = new THREE.Mesh(this.geo, mat);
-    mesh.scale.setScalar(spell.size);
+    mesh.scale.setScalar(spell.size * potencia);
     mesh.position.copy(from);
     this.scene.add(mesh);
     this.light.color.setHex(spell.hex);
-    this.fx.big.emit(from, { count: 25, color: spell.hex, intensity: 2, speed: 2, life: 0.5 });
-    this.active.push({ spell, mesh, target, dest: fallback.clone(), onHit, t: 0 });
+    this.fx.big.emit(from, { count: Math.round(25 * potencia), color: spell.hex, intensity: 2, speed: 2 * potencia, life: 0.5 });
+    this.active.push({ spell, mesh, target, dest: fallback.clone(), onHit, t: 0, potencia });
   }
 
   fizzle(pos) {
@@ -49,7 +50,7 @@ export class SpellSystem {
       const dist = dir.length();
       const step = a.spell.speed * dt;
       if (dist <= step + 0.25 || a.t > 4) {
-        this.explode(a.mesh.position, a.spell);
+        this.explode(a.mesh.position, a.spell, a.potencia);
         this.scene.remove(a.mesh);
         a.mesh.material.dispose();
         this.active.splice(i, 1);
@@ -59,17 +60,18 @@ export class SpellSystem {
       dir.multiplyScalar(1 / dist);
       a.mesh.position.addScaledVector(dir, step);
       a.mesh.position.y += Math.sin(a.t * 18) * 0.01;
-      this.fx.small.emit(a.mesh.position, { count: 4, color: a.spell.hex, intensity: 2, speed: 0.6, life: 0.5, jitter: a.spell.size });
+      this.fx.small.emit(a.mesh.position, { count: Math.round(4 * a.potencia), color: a.spell.hex, intensity: 2, speed: 0.6, life: 0.5, jitter: a.spell.size * a.potencia });
       this.light.position.copy(a.mesh.position);
       lightOn = true;
     }
     this.light.intensity = lightOn ? 18 : this.flash * 25;
   }
 
-  explode(pos, spell) {
-    this.fx.big.emit(pos, { count: 45, color: spell.hex, intensity: 1.2, speed: 5, life: 0.8, drag: 2 });
-    this.fx.small.emit(pos, { count: 70, color: spell.hex, intensity: 1.2, speed: 7, life: 0.6, drag: 3 });
+  explode(pos, spell, potencia = 1) {
+    this.fx.big.emit(pos, { count: Math.round(45 * potencia), color: spell.hex, intensity: 1.2, speed: 5 * potencia, life: 0.8, drag: 2 });
+    this.fx.small.emit(pos, { count: Math.round(70 * potencia), color: spell.hex, intensity: 1.2, speed: 7 * potencia, life: 0.6, drag: 3 });
+    if (potencia > 1.5) this.fx.big.emit(pos, { count: 30, color: 0xffffff, intensity: 2.5, speed: 9, life: 0.35, drag: 4 });
     this.light.position.copy(pos);
-    this.flash = 1;
+    this.flash = Math.min(1.8, potencia);
   }
 }

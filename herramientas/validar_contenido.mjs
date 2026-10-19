@@ -10,10 +10,16 @@ import PISO5 from '../js/contenido/piso5.js';
 import PISO6 from '../js/contenido/piso6.js';
 import PISO7 from '../js/contenido/piso7.js';
 import PISO8 from '../js/contenido/piso8.js';
+import PISO9 from '../js/contenido/piso9.js';
+import PISO10 from '../js/contenido/piso10.js';
+import PISO11 from '../js/contenido/piso11.js';
+import PISO12 from '../js/contenido/piso12.js';
+import PISO13 from '../js/contenido/piso13.js';
+import CIMA from '../js/contenido/cima.js';
 
 const CRITERIOS = ['1.1', '1.2', '2.1', '2.2', '2.3', '3.1', '3.2', '3.3', '4.1', '4.2', '4.3', '4.4', '4.5'];
 const CRITERIO_PISO1 = { contrasenas: '3.1', '2fa': '3.3', phishing: '3.3' }; // igual que en main.js
-const LECCIONES = { ...PISO1.lecciones, ...PISO2.lecciones, ...PISO3.lecciones, ...PISO4.lecciones, ...PISO5.lecciones, ...PISO6.lecciones, ...PISO7.lecciones, ...PISO8.lecciones };
+const LECCIONES = { ...PISO1.lecciones, ...PISO2.lecciones, ...PISO3.lecciones, ...PISO4.lecciones, ...PISO5.lecciones, ...PISO6.lecciones, ...PISO7.lecciones, ...PISO8.lecciones, ...PISO9.lecciones, ...PISO10.lecciones, ...PISO11.lecciones, ...PISO12.lecciones, ...PISO13.lecciones, ...CIMA.lecciones };
 const errores = [];
 const mal = (donde, msg) => errores.push(`${donde}: ${msg}`);
 
@@ -36,7 +42,30 @@ const preguntas = [
   { ...PISO7.curacion, origen: 'piso7 (curación)' },
   ...PISO8.preguntas.map((q) => ({ ...q, origen: 'piso8' })),
   ...PISO8.triada.map((q) => ({ ...q, origen: 'piso8 (tríada)' })),
+  ...PISO9.preguntas.map((q) => ({ ...q, origen: 'piso9' })),
+  ...PISO9.juicios.map((q) => ({ ...q, origen: 'piso9 (juicios)' })),
+  ...PISO9.cofre.map((q) => ({ ...q, origen: 'piso9 (cofre)' })),
+  { ...PISO9.espejo.final, origen: 'piso9 (espejo)' },
+  ...PISO10.preguntas.map((q) => ({ ...q, origen: 'piso10' })),
+  ...PISO10.reloj.map((q) => ({ ...q, origen: 'piso10 (reloj)' })),
+  ...PISO11.preguntas.map((q) => ({ ...q, origen: 'piso11' })),
+  ...PISO11.diagramas.map((q) => ({ ...q, origen: 'piso11 (diagramas)' })),
+  { ...PISO11.sintaxis, origen: 'piso11 (sintaxis)' },
+  ...PISO12.preguntas.map((q) => ({ ...q, origen: 'piso12' })),
+  { ...PISO12.registro.pregunta, origen: 'piso12 (registro)' },
+  ...PISO13.preguntas.map((q) => ({ ...q, origen: 'piso13' })),
+  ...PISO13.constelaciones.map((q) => ({ ...q, origen: 'piso13 (constelaciones)' })),
+  ...CIMA.preguntas.map((q) => ({ ...q, origen: 'cima' })),
+  ...CIMA.visor.map((q) => ({ ...q, origen: 'cima (visor)' })),
+  ...CIMA.jefe.fases.filter((f) => f.pregunta).map((f) => ({ ...f.pregunta, origen: 'cima (duelo)' })),
 ];
+// chats simulados del Piso X: cada elección tiene al menos una respuesta buena y explicaciones
+for (const c of [...PISO10.voces, PISO10.ecos]) {
+  for (const p of c.pasos.filter((x) => x.elige)) {
+    if (!p.elige.some((o) => o.ok)) mal(`piso10 · ${c.titulo}`, 'una elección sin respuesta buena');
+    for (const o of p.elige) if (!o.efecto) mal(`piso10 · ${c.titulo}`, 'opción sin consecuencia explicada');
+  }
+}
 
 const ids = new Set();
 for (const q of preguntas) {

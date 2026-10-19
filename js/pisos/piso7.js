@@ -162,7 +162,7 @@ export async function construir(ctx) {
       const l = C.lecciones.burbuja;
       await ui.dialogue(l.paginas);
       estado.learned.add('burbuja');
-      ui.toast(`Nuevo concepto en el grimorio: **${l.titulo}** (G)`, 'learn', 4200);
+      ui.conceptoNuevo(l.titulo);
     }
     const ok = await ui.quiz(E.pregunta, 'El espejo de las recomendaciones');
     ctx.record(ok, E.pregunta.criterio);

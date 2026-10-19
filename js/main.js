@@ -10,7 +10,7 @@ import { crearExterior } from './exterior.js';
 import { Player } from './player.js';
 import { Hologram } from './hologram.js';
 import { SpellSystem, SPELLS } from './spells.js';
-import { UI } from './ui.js';
+import { UI, estrellasDe } from './ui.js';
 import { Sonido } from './audio.js';
 import { PROLOGO, CASA, EXTERIOR, PISO1, PREGUNTAS } from './content.js';
 import { RUTAS, cargarModelo, cargarPaleta } from './modelos.js';
@@ -24,6 +24,8 @@ import { esTactil, crearTactil } from './tactil.js';
 import { descargarInforme } from './informe.js';
 import { crearCine } from './cinematica.js';
 import GUARDIANES from './contenido/guardianes.js';
+import { tiempoDeCrackeo } from './mecanicas/fuerza.js';
+import { crearChispa } from './chispa.js';
 import { crearGuardianes } from './mecanicas/guardianes.js';
 import { Chat } from './chat.js';
 import PISO2 from './contenido/piso2.js';
@@ -33,6 +35,12 @@ import PISO5 from './contenido/piso5.js';
 import PISO6 from './contenido/piso6.js';
 import PISO7 from './contenido/piso7.js';
 import PISO8 from './contenido/piso8.js';
+import PISO9 from './contenido/piso9.js';
+import PISO10 from './contenido/piso10.js';
+import PISO11 from './contenido/piso11.js';
+import PISO12 from './contenido/piso12.js';
+import PISO13 from './contenido/piso13.js';
+import CIMA from './contenido/cima.js';
 
 // Pisos que se construyen al llegar a ellos (carga diferida). El Piso I sigue en world.js.
 const PISOS = {
@@ -43,10 +51,16 @@ const PISOS = {
   piso6: () => import('./pisos/piso6.js'),
   piso7: () => import('./pisos/piso7.js'),
   piso8: () => import('./pisos/piso8.js'),
+  piso9: () => import('./pisos/piso9.js'),
+  piso10: () => import('./pisos/piso10.js'),
+  piso11: () => import('./pisos/piso11.js'),
+  piso12: () => import('./pisos/piso12.js'),
+  piso13: () => import('./pisos/piso13.js'),
+  cima: () => import('./pisos/cima.js'),
 };
 const ORDEN_PISOS = ['piso1', ...Object.keys(PISOS)];
 const siguientePiso = (id) => ORDEN_PISOS[ORDEN_PISOS.indexOf(id) + 1] ?? null;
-const CONTENIDO_PISOS = [PISO2, PISO3, PISO4, PISO5, PISO6, PISO7, PISO8];
+const CONTENIDO_PISOS = [PISO2, PISO3, PISO4, PISO5, PISO6, PISO7, PISO8, PISO9, PISO10, PISO11, PISO12, PISO13, CIMA];
 // Todas las lecciones y todas las preguntas de la varita, de todos los pisos
 const LECCIONES = Object.assign({ ...PISO1.lecciones }, ...CONTENIDO_PISOS.map((c) => c.lecciones));
 const CRITERIO_PISO1 = { contrasenas: '3.1', '2fa': '3.3', phishing: '3.3' };
@@ -118,6 +132,7 @@ const player = new Player(scene);
 const aldric = new Hologram(scene);
 aldric.group.visible = false; // aparece cuando se activa el cristal
 const spells = new SpellSystem(scene, fx);
+const chispa = crearChispa(scene, fx);
 const ataques = crearAtaques({ escena: scene, fx, sonido: null });
 const ui = new UI();
 const sonido = new Sonido();
@@ -129,6 +144,7 @@ function aplicarOpciones(o) {
   sonido.ajustarVolumen(o.musica, o.efectos);
   document.documentElement.style.setProperty('--texto', o.texto); // tamaño del texto de la interfaz
   if (o.reducirMovimiento) state.shake = 0;
+  document.body.classList.toggle('sin-movimiento', !!o.reducirMovimiento);
   ajustarCalidad(o.calidadBaja);
 }
 // calidad baja: resolución 1:1, sombras de 1024 y sin resplandor (bloom)
@@ -156,8 +172,60 @@ const leer = (k) => { try { return localStorage.getItem(k) || ''; } catch { retu
 const guardar = (k, v) => { try { localStorage.setItem(k, v); } catch { /* sin almacenamiento local */ } };
 // personaje y etiqueta de este jugador (se recuerdan para la próxima vez)
 const miPerfil = { personaje: personajeValido(leer('torreMorvathPersonaje')), etiqueta: leer('torreMorvathEtiqueta') };
-ui.onRespuesta = (ok) => (ok ? sonido.acierto() : sonido.fallo());
+// Cada respuesta: sonido, racha, bonus de rapidez (⚡) y una reacción en el mundo 3D.
+// Devuelve lo que la ventana de la pregunta enseña (la racha y los bonus).
+ui.onRespuesta = (ok, { ms = Infinity, limite = 0 } = {}) => {
+  if (!ok) {
+    sonido.fallo();
+    state.balance.fallos++;
+    state.racha = 0;
+    pintarRacha();
+    if (!opciones.reducirMovimiento) state.shake = Math.max(state.shake, 0.12);
+    zona.alResponder?.(false, 0);
+    return { racha: 0 };
+  }
+  state.racha = (state.racha ?? 0) + 1;
+  const rapido = ms < limite;
+  sonido.acierto(state.racha, rapido);
+  state.balance.aciertos++;
+  if (rapido) state.balance.rapidos++;
+  state.balance.mejorRacha = Math.max(state.balance.mejorRacha, state.racha);
+  state.trofeos.mejorRacha = Math.max(state.trofeos.mejorRacha, state.racha);
+  const bonusRacha = state.racha >= 3 ? Math.min(10, (state.racha - 2) * 2) : 0;
+  const bonus = (rapido ? 5 : 0) + bonusRacha;
+  if (bonus) addSaber(bonus);
+  pintarRacha();
+  // en el mundo: chispas alrededor del jugador y, cada 3 seguidas, celebración
+  fx.big.emit(player.pos.clone().setY(1.2), { count: 26 + state.racha * 4, color: rapido ? 0x9fe6ff : 0xffd27a, intensity: 2, speed: 2.6, life: 0.9, gravity: -1.5 });
+  if (state.racha % 3 === 0) { player.celebrar(); aldric.celebrar(); }
+  zona.alResponder?.(true, state.racha);
+  if (state.racha === 3 || state.racha % 5 === 0) red.enviarHito(state.racha);
+  if (state.racha === 5) ui.toast('🔥 **¡Imparable!** Cinco seguidas.', 'seal', 3200);
+  if (state.racha % 5 === 0) {
+    ui.comodines = Math.min(3, ui.comodines + 1);
+    setTimeout(() => ui.toast(`🪄 Aldric os guarda un **comodín** (tenéis ${ui.comodines}). Úsalo en una pregunta con **C**.`, 'learn', 3600), 900);
+  }
+  if (state.racha === 10) ui.toast('🔥🔥 **¡Leyenda de la torre!** Diez seguidas.', 'seal', 3600);
+  return { racha: state.racha, rapido, bonusRacha };
+};
+function pintarRacha() {
+  const el = document.getElementById('racha');
+  if (!el) return;
+  el.textContent = state.racha ?? 0;
+  el.parentElement.classList.toggle('caliente', (state.racha ?? 0) >= 3);
+  el.classList.remove('bump');
+  void el.offsetWidth;
+  el.classList.add('bump');
+}
 ui.onDialogo = () => sonido.holograma();
+ui.comodines = 1;
+ui.onComodin = () => { sonido.holograma(); aldric.gesto(); state.trofeos.comodines++; };
+// Aldric gesticula al hablar: un gesto por página y, si exclama, a veces lo celebra
+ui.onPagina = (linea, quien) => {
+  if (!/Aldric/.test(quien) || !aldric.group.visible) return;
+  if (/¡/.test(linea) && Math.random() < 0.35) aldric.celebrar();
+  else if (Math.random() < 0.6) aldric.gesto();
+};
 
 // Modelos externos (KayKit, CC0). Si algo falla, se quedan los hechos por código.
 const intentar = async (que, fn) => {
@@ -284,6 +352,8 @@ async function mostrarSalida() {
 // ---------- Cambiar de zona (con fundido a negro) ----------
 function aplicarZona(z) {
   zona = z;
+  // en la Cima, Aldric está de verdad (en su jaula): fuera el holograma
+  if (state.casa.cristal) aldric.group.visible = !z.sinHolograma;
   for (const o of Object.values(zonas)) o.grupo.visible = o === z;
   scene.fog.color.setHex(z.niebla.color);
   scene.fog.density = z.niebla.densidad;
@@ -417,8 +487,10 @@ async function ponerGuardianes(id, piso, origen) {
     const g = await crearGuardianes(contextoPiso(), { pisoId: id, origen, lista, grupoVisible: () => piso.zona.grupo.visible });
     guardianes[id] = g;
     const actualizar = piso.zona.actualizar;
+    const responder = piso.zona.alResponder;
     Object.assign(piso.zona, {
       dianas: g.dianas, alApuntar: g.alApuntar, alGolpear: g.alGolpear,
+      alResponder: (ok, racha) => { responder?.(ok, racha); g.alResponder(ok); },
       actualizar: (dt, t) => { actualizar(dt, t); g.actualizar(dt, t); },
     });
   } catch (e) {
@@ -426,8 +498,19 @@ async function ponerGuardianes(id, piso, origen) {
   }
 }
 
+// lo que se lleva cada piso (para el balance con estrellas al subir)
+function nuevoBalance() { return { aciertos: 0, fallos: 0, rapidos: 0, mejorRacha: 0, desde: performance.now() }; }
+state.balance = nuevoBalance();
+// trofeos de la partida (se enseñan en la pantalla final)
+state.trofeos = { mejorRacha: 0, chispas: 0, comodines: 0, estrellas: {} };
 async function subirAPiso(id) {
   guardarProgreso(zona.id);
+  const b = state.balance;
+  const estrellas = ui.balancePiso(zona.nombre ?? PISO1.nombre, { ...b, segundos: (performance.now() - b.desde) / 1000 });
+  if (estrellas) state.trofeos.estrellas[zona.id] = Math.max(state.trofeos.estrellas[zona.id] ?? 0, estrellas);
+  if (estrellas) for (let i = 0; i < estrellas; i++) setTimeout(() => sonido.acierto(), 300 + i * 280);
+  state.balance = nuevoBalance();
+  ui.comodines = Math.max(ui.comodines, 1); // cada piso nuevo trae al menos un comodín
   ui.toast('Subiendo por la escalera…', 'info', 2400);
   let piso;
   try {
@@ -452,7 +535,9 @@ async function teach(id) {
   await ui.dialogue(lesson.paginas);
   if (!state.learned.has(id)) {
     state.learned.add(id);
-    ui.toast(`Nuevo concepto en el grimorio: **${lesson.titulo}** (G)`, 'learn', 4200);
+    ui.conceptoNuevo(lesson.titulo);
+    sonido.acierto();
+    fx.big.emit(player.pos.clone().setY(1.4), { count: 40, color: 0x9fe6ff, intensity: 2, speed: 2, up: 1.4, life: 1.2, gravity: -1 });
   }
   if (lesson.despues) await ui.dialogue(lesson.despues);
 }
@@ -505,21 +590,23 @@ async function offerCrystal(c) {
   accion('altar', { i: world.crystals.indexOf(c) });
 }
 async function efectoAltar(c, soyAutor) {
+  // el altar «ataca» cada cristal por fuerza bruta y dice cuánto aguantaría
+  const reloj = `⏱ Un ordenador potente la adivinaría **${tiempoDeCrackeo(c.texto)}**.`;
   if (c.ok) {
-    if (soyAutor) record(true, '3.1');
+    if (soyAutor) { record(true, '3.1'); state.balance.aciertos++; }
     sonido.acierto();
     c.done = true;
     world.flashCrystal(c, true);
     for (const other of world.crystals) other.label.visible = other === c;
-    await ui.dialogue([`¡Eso es! «${c.texto}»: ${c.porque}`]);
+    await ui.dialogue([`¡Eso es! «${c.texto}»: ${c.porque}`, `${reloj} Así se protege un sello.`]);
     await breakSeal('altar');
   } else {
-    if (soyAutor) record(false, '3.1');
+    if (soyAutor) { record(false, '3.1'); state.balance.fallos++; }
     sonido.cristalRoto();
     world.flashCrystal(c, false);
     state.shake = 0.4;
     player.golpe();
-    await ui.dialogue([`¡Cuidado! «${c.texto}» no aguantaría ni un hechizo de aprendiz. ${c.porque}`, 'Probad con otro cristal.']);
+    await ui.dialogue([`¡Cuidado! «${c.texto}» no aguantaría ni un hechizo de aprendiz. ${c.porque}`, `${reloj} Probad con otro cristal.`]);
   }
 }
 
@@ -530,7 +617,9 @@ function hitScroll(s, soyAutor) {
     world.destroyScroll(s, true);
     fraudLeft--;
     addSaber(5);
+    if (soyAutor) state.balance.aciertos++;
     ui.toast(`🔥 Phishing destruido. ${s.data.motivo}`, 'good', 5200);
+    if (fraudLeft > 0) ui.toast(fraudLeft === 1 ? '¡Queda **uno**! Los pergaminos giran más deprisa…' : `Los pergaminos se agitan: quedan **${fraudLeft}** falsos.`, 'info', 2600);
     refreshObjectives();
     if (fraudLeft === 0) {
       for (const o of world.scrolls) if (o.alive) o.released = true;
@@ -540,8 +629,9 @@ function hitScroll(s, soyAutor) {
       });
     }
   } else {
-    if (soyAutor) state.fallos++;
+    if (soyAutor) { state.fallos++; state.balance.fallos++; }
     state.shake = 0.3;
+    world.dispersar();
     sonido.fallo();
     fx.big.emit(s.group.position, { count: 35, color: 0xffd27a, intensity: 1.2, speed: 3, life: 0.8 });
     runFlow(() => ui.dialogue([`¡Alto! Ese mensaje era **legítimo**: ${s.data.motivo}`, 'Un escudo lo ha protegido. Leed bien antes de disparar.']));
@@ -569,6 +659,46 @@ function anotarPregunta(q, ok) {
   const h = (state.historial[q.id] ??= { fallada: false, seguidas: 0 });
   h.fallada = !ok;
   h.seguidas = ok ? h.seguidas + 1 : 0;
+}
+
+// ---------- La chispa de Morvath (pregunta relámpago opcional) ----------
+// Cada 2,5–4 minutos de juego en los pisos aparece un fuego fatuo que revolotea;
+// quien lo alcanza responde una pregunta de repaso con premio. Si nadie lo caza, se apaga.
+let esperaChispa = 120 + Math.random() * 60, zonaChispa = null;
+function actualizarChispa(dt, t) {
+  const enPiso = /^piso\d+$/.test(zona.id ?? '');
+  if (!enPiso || zona !== zonaChispa) { chispa.apagar(); zonaChispa = zona; }
+  if (!enPiso || state.phase !== 'play' || busy()) return;
+  if (!chispa.activa) {
+    if (!BANCO.some((q) => state.learned.has(q.concepto))) return;
+    esperaChispa -= dt;
+    if (esperaChispa > 0) return;
+    esperaChispa = 150 + Math.random() * 90;
+    chispa.aparecer(player.pos);
+    sonido.holograma();
+    ui.toast('✨ ¡Una **chispa de Morvath**! Atrapadla antes de que se apague: pregunta relámpago con premio.', 'info', 3600);
+    return;
+  }
+  if (chispa.update(dt, t, player.pos, zona.limitar ? (p, z) => zona.limitar(p, z) : null)) {
+    chispa.apagar(true);
+    runFlow(preguntaRelampago);
+  }
+}
+async function preguntaRelampago() {
+  const q = pickQuestion();
+  const ok = await ui.quiz(q, '✨ Pregunta relámpago · la chispa de Morvath');
+  record(ok, q.criterio);
+  anotarPregunta(q, ok);
+  if (!ok) {
+    ui.toast('La chispa se escapa riéndose… ¡a por la próxima!', 'bad', 2600);
+    return;
+  }
+  addSaber(15);
+  state.trofeos.chispas++;
+  if (ui.comodines < 3 && Math.random() < 0.5) {
+    ui.comodines++;
+    ui.toast(`✨ **+15 de saber** y un 🪄 **comodín** (tenéis ${ui.comodines}).`, 'good', 3200);
+  } else ui.toast('✨ **+15 de saber** por cazar la chispa.', 'good', 3000);
 }
 
 const camFwd = new THREE.Vector3();
@@ -599,17 +729,21 @@ async function useWand() {
   if (ok) {
     const k = Math.floor(Math.random() * SPELLS.length);
     const spell = SPELLS[k];
+    // la racha carga la varita: con 3 seguidas el hechizo sale potenciado; con 5, desatado
+    const racha = state.racha ?? 0;
+    const p = racha >= 5 ? 2.2 : racha >= 3 ? 1.6 : 1;
     sonido.lanzar(spell.hex);
-    ui.toast(`✦ ${spell.nombre}`, 'spell', 2200);
+    ui.toast(`✦ ${spell.nombre}${racha >= 5 ? ' · ¡desatado! 🔥🔥' : racha >= 3 ? ' · potenciado 🔥' : ''}`, 'spell', 2200);
     camFwd.set(-Math.sin(cam.yaw), 0, -Math.cos(cam.yaw));
     const fallback = player.pos.clone().addScaledVector(camFwd, 14).setY(player.pos.y + 1.4);
     const aim = target && target.alive ? () => target.group.position : null;
     const idx = aim ? world.scrolls.indexOf(target) : null;
-    red.enviar({ t: 'hechizo', k, de: tip.toArray(), a: idx, d: fallback.toArray() });
+    red.enviar({ t: 'hechizo', k, de: tip.toArray(), a: idx, d: fallback.toArray(), p });
     spells.cast(spell, tip, aim, fallback, () => {
       sonido.impacto();
+      if (p > 1 && !opciones.reducirMovimiento) state.shake = Math.max(state.shake, 0.1 * p);
       if (aim) accion('pergamino', { i: idx });
-    });
+    }, p);
     state.wandCooldown = 1.2;
   } else {
     spells.fizzle(tip);
@@ -743,7 +877,7 @@ function verHechizo(m) {
   const de = new THREE.Vector3().fromArray(m.de);
   const aim = m.a !== null && world.scrolls[m.a] ? () => world.scrolls[m.a].group.position : null;
   sonido.lanzar(spell.hex);
-  spells.cast(spell, de, aim, new THREE.Vector3().fromArray(m.d), () => sonido.impacto());
+  spells.cast(spell, de, aim, new THREE.Vector3().fromArray(m.d), () => sonido.impacto(), Math.min(2.2, Math.max(1, +m.p || 1)));
 }
 red.alMensaje = (msg, de) => {
   if (msg.t === 'pos') companeros.get(msg.id)?.recibir(msg);
@@ -753,6 +887,11 @@ red.alMensaje = (msg, de) => {
     sonido.mensaje();
   }
   else if (msg.t === 'hechizo') verHechizo(msg);
+  else if (msg.t === 'hito') {
+    const n = Math.round(+msg.n) || 0;
+    ui.toast(`🔥 **${String(msg.nombre ?? '').replaceAll('*', '')}** lleva **${n}** aciertos seguidos${n >= 10 ? '. ¡Leyenda!' : n >= 5 ? '. ¡Imparable!' : ''}`, 'info', 3000);
+    companeros.get(msg.id)?.decir(`🔥 ¡Racha ×${n}!`);
+  }
   else if (msg.t === 'ataque') verAtaque(msg);
   else if (msg.t === 'acc' && red.esHost) {
     if (!valido(msg.tipo, msg.datos)) return;
@@ -1156,6 +1295,13 @@ addEventListener('keydown', (e) => {
   if (['Space', 'ArrowUp', 'ArrowDown', 'Tab'].includes(e.code)) e.preventDefault();
   sonido.iniciar();
   if (cine.tecla(e)) { e.preventDefault(); return; }
+  if (OPERADOR && e.code === 'F2' && !e.repeat) { e.preventDefault(); panelOperador(); return; }
+  if (OPERADOR && e.code === 'KeyV' && !e.repeat && state.phase === 'play' && !busy()) {
+    state.fantasma = !state.fantasma;
+    if (!state.fantasma) player.pos.y = Math.max(player.pos.y, zona.suelo?.(player.pos) ?? 0);
+    ui.toast(state.fantasma ? 'Modo fantasma: atraviesas paredes · Espacio sube · C baja · V para salir' : 'Modo fantasma desactivado', 'info', 3000);
+    return;
+  }
   if (ui.handleKey(e)) return;
   if (red.activa && !e.repeat && (e.code === 'KeyT' || (e.code === 'Enter' && state.phase === 'play'))) {
     e.preventDefault();
@@ -1340,9 +1486,26 @@ function finish() {
   const fin = $('screen-end');
   fin.querySelector('.title-kicker').textContent = `${numero} superado`;
   fin.querySelector('.end-title').textContent = titulo ?? '';
-  fin.querySelector('.title-sub').innerHTML = zona.id === 'piso8'
-    ? 'La proyección de Morvath se ha desvanecido, pero la torre sigue en pie. <strong>Lo que hay más arriba</strong>, próximamente.'
-    : 'La escalera sigue subiendo. <strong>El siguiente piso</strong>, próximamente.';
+  if (zona.id === 'cima') {
+    // el final de verdad: la torre es libre y los créditos
+    fin.querySelector('.title-kicker').textContent = 'La torre es libre';
+    fin.querySelector('.end-title').textContent = 'Fin';
+    fin.querySelector('.title-sub').innerHTML = `Aldric es libre y Morvath ha entendido, por fin, que el saber se protege compartiéndolo. Gracias por jugar.
+      <span class="creditos"><b>Créditos</b> · Modelos 3D: <em>KayKit</em> de Kay Lousberg (Adventurers, Skeletons, Dungeon Remastered, Halloween Bits, Medieval Hexagon, Furniture Bits), licencia CC0 ·
+      Motor: <em>Three.js</em> (MIT) · Juego en equipo: <em>PeerJS</em> (MIT) · Tipografías: <em>Cinzel</em> y <em>Alegreya Sans</em> (OFL) · Música y sonidos sintetizados en el navegador ·
+      Hecho con ayuda de IA y revisado por personas · Currículo: Informática y Digitalización II (Canarias)</span>`;
+  } else {
+    fin.querySelector('.title-sub').innerHTML = 'La escalera sigue subiendo. <strong>El siguiente piso</strong>, próximamente.';
+  }
+  // el piso en el que se termina también cuenta sus estrellas
+  const ultimas = estrellasDe(state.balance);
+  if (ultimas) state.trofeos.estrellas[zona.id] = Math.max(state.trofeos.estrellas[zona.id] ?? 0, ultimas);
+  const pisosConEstrellas = Object.values(state.trofeos.estrellas);
+  const trofeos = [
+    ['Mejor racha', `🔥 ${state.trofeos.mejorRacha}`],
+    ...(pisosConEstrellas.length ? [['Estrellas', `★ ${pisosConEstrellas.reduce((s, n) => s + n, 0)} / ${pisosConEstrellas.length * 3}`]] : []),
+    ...(state.trofeos.chispas ? [['Chispas cazadas', `✨ ${state.trofeos.chispas}`]] : []),
+  ];
   const porCriterio = Object.entries(state.criterios).sort().map(([k, v]) => [`Criterio ${k}`, `${Math.round((v.a / Math.max(1, v.a + v.f)) * 100)}%`]);
   ui.showEnd([
     ['Saber', state.saber],
@@ -1350,6 +1513,7 @@ function finish() {
     ['Fallos', state.fallos],
     ['Precisión', `${precision}%`],
     ['Tiempo', `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`],
+    ...trofeos,
     ...porCriterio,
   ]);
 }
@@ -1383,10 +1547,55 @@ async function continuarEnPiso(id) {
   await ui.fundido(false);
   await runFlow(() => piso.intro());
 }
+// ---------- Modo operador (?operador=1): saltar a cualquier zona y modo fantasma ----------
+// Para revisar la jugabilidad de cada piso sin pasárselo. No funciona en equipo.
+const OPERADOR = new URLSearchParams(location.search).has('operador');
+const ZONA_FANTASMA = { suelo: () => -1e9, colliders: [], limitar() {} };
+async function irOperador(id) {
+  if (red.activa || cine.activa) return;
+  document.querySelector('.panel-operador')?.remove();
+  sonido.iniciar();
+  ui.hideScreen('screen-title');
+  ui.hideScreen('screen-story');
+  if (PISOS[id]) {
+    document.getElementById('loading').classList.remove('hidden');
+    try { await asegurarPiso(id); } finally { document.getElementById('loading').classList.add('hidden'); }
+  }
+  state.varita = true;
+  player.mostrarVarita(true);
+  aldric.group.visible = true;
+  state.casa.cristal = true;
+  casa.cristal.activo = true;
+  state.startedAt ||= performance.now();
+  await irA(id, zonas[id].nombre);
+  state.phase = 'play';
+  document.getElementById('hud').classList.remove('hidden');
+  refreshObjectives();
+}
+function panelOperador() {
+  if (document.querySelector('.panel-operador')) { document.querySelector('.panel-operador').remove(); return; }
+  if (red.activa) { ui.toast('El modo operador solo funciona jugando solo.', 'bad', 3000); return; }
+  const destinos = [['casa', 'Casa de Aldric'], ['exterior', 'Exterior'], ['piso1', PISO1.nombre], ...Object.keys(PISOS).map((id) => [id, CONTENIDO_PISOS.find((c) => c.id === id)?.nombre ?? id])];
+  const p = document.createElement('div');
+  p.className = 'panel-operador panel';
+  p.innerHTML = `<div class="op-cab">Modo operador <small>F2 cierra · V fantasma</small></div>
+    ${destinos.map(([id, n]) => `<button class="btn op-ir" data-id="${id}">${n}</button>`).join('')}
+    <div class="op-pie">Fantasma: ${state.fantasma ? 'activado' : 'desactivado'} (V)</div>`;
+  p.querySelectorAll('.op-ir').forEach((b) => { b.onclick = () => irOperador(b.dataset.id); });
+  document.body.appendChild(p);
+}
+if (OPERADOR) {
+  const b = document.createElement('button');
+  b.className = 'btn-enlace';
+  b.textContent = 'Modo operador (F2)';
+  b.onclick = panelOperador;
+  document.querySelector('#screen-title .title-wrap')?.appendChild(b);
+}
+
 // pisos con carga diferida cuyo anterior ya está superado (con ?docente=1, todos)
 function pisosDisponibles() {
   const hechos = leerProgreso().pisos;
-  const docente = new URLSearchParams(location.search).has('docente');
+  const docente = OPERADOR || new URLSearchParams(location.search).has('docente');
   return Object.keys(PISOS).filter((id) => docente || hechos[ORDEN_PISOS[ORDEN_PISOS.indexOf(id) - 1]]?.completado);
 }
 const mapaPisos = pisosDisponibles(); // se calcula al cargar: el progreso no cambia estando en la casa
@@ -1458,6 +1667,7 @@ async function informe() {
     fecha: new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }),
     pisos: [PISO1, ...CONTENIDO_PISOS].map((c, i) => ({ id: ORDEN_PISOS[i], nombre: c.nombre })),
     progreso: leerProgreso(),
+    sesion: state.trofeos,
   });
   ui.toast('Informe descargado: ábrelo con el navegador para verlo o imprimirlo.', 'info', 5000);
 }
@@ -1514,7 +1724,14 @@ function tick(dt, t) {
   // girar la cámara con el teclado (para jugar sin ratón)
   if (control && keys.KeyJ) cam.yaw += dt * 2.2 * opciones.sensibilidad;
   if (control && keys.KeyL) cam.yaw -= dt * 2.2 * opciones.sensibilidad;
-  player.update(dt, { x: ix, z: iz, run: correr, jump: control && keys.Space }, cam.yaw, zona, t);
+  if (state.fantasma) {
+    const y = player.pos.y;
+    player.update(dt, { x: ix, z: iz, run: true, jump: false }, cam.yaw, ZONA_FANTASMA, t);
+    player.pos.addScaledVector(player.vel, dt); // el doble de rápido
+    player.pos.y = Math.max(-1, y + ((control && keys.Space ? 1 : 0) - (control && keys.KeyC ? 1 : 0)) * 7 * dt);
+    player.vel.y = 0;
+    player.onGround = true;
+  } else player.update(dt, { x: ix, z: iz, run: correr, jump: control && keys.Space }, cam.yaw, zona, t);
   if (aldric.group.visible) aldric.update(dt, t, player, camera, ui.open.dialogue, zona);
 
   // sonido de pasos, salto y aterrizaje
@@ -1558,6 +1775,7 @@ function tick(dt, t) {
     world.update(dt, t, camera);
   }
   spells.update(dt);
+  actualizarChispa(dt, t);
   ataques.update(dt);
   if (enfriamientoArma > 0) enfriamientoArma = Math.max(0, enfriamientoArma - dt);
   fx.small.update(dt);
@@ -1607,7 +1825,9 @@ function tick(dt, t) {
     // al cruzar la puerta abierta y subir la escalera se pasa al siguiente piso
     const sal = zona.salida;
     if (sal && sal.abierta() && !state.finished && player.pos.z < sal.z) {
-      const [tipo, datos] = sal.accion;
+      let [tipo, datos] = sal.accion;
+      // si el siguiente piso aún no existe, este es el último: se termina la partida
+      if (tipo === 'subir' && !PISOS[datos.piso]) [tipo, datos] = ['fin', { piso: zona.id }];
       const clave = `${tipo}:${datos.piso}`;
       if (!state.pedido[clave]) {
         state.pedido[clave] = true;
@@ -1633,7 +1853,7 @@ requestAnimationFrame(frame);
 // aunque la pestaña esté en segundo plano
 let simT = 0;
 window.__torre = {
-  state, player, world, casa, exterior, cam, ui, keys, sonido, aldric, red, companeros, pisos, renderer, accion,
+  state, player, world, casa, exterior, cam, ui, keys, sonido, aldric, red, companeros, pisos, renderer, accion, chispa,
   get zona() { return zona; },
   get cine() { return cine; },
   // ir a una zona sin fundido (los pisos con carga diferida se construyen antes)

@@ -1,4 +1,5 @@
-// Los personajes que se pueden elegir (KayKit Adventurers, CC0).
+// Los personajes que se pueden elegir (KayKit Adventurers, CC0, y el monstruo naranja,
+// generado a partir de una imagen con TRELLIS y con esqueleto propio: herramientas/monstruo/).
 // Cada uno se prepara una sola vez como "plantilla" (paleta oscura, sin armas,
 // con la varita de Aldric en la mano y a 1,8 m de alto) y se carga solo cuando
 // alguien lo elige. El jugador y sus compañeros usan copias de esa plantilla.
@@ -14,6 +15,7 @@ const base = [
   { id: 'picaro', nombre: 'Pícara', archivo: 'picaro.glb', paleta: 'paleta_picaro_oscura.png' },
   { id: 'caballero', nombre: 'Caballero', archivo: 'caballero.glb', paleta: 'paleta_caballero_oscura.png' },
   { id: 'barbaro', nombre: 'Bárbaro', archivo: 'barbaro.glb', paleta: 'paleta_barbaro_oscura.png' },
+  { id: 'monstruo', nombre: 'Monstruo', archivo: 'monstruo.glb', paleta: null }, // trae su propia textura
 ];
 export const PERSONAJES = base.map((p) => ({ ...p, ...ARMAS[p.id] }));
 export const ataqueDe = (id) => PERSONAJES.find((p) => p.id === personajeValido(id)).ataque;
@@ -34,7 +36,7 @@ export function cargarPersonaje(id) {
   if (!plantillas.has(id)) {
     const p = PERSONAJES.find((x) => x.id === id);
     const promesa = (async () => {
-      const [gltf, paleta] = await Promise.all([cargarModelo(`assets/modelos/${p.archivo}`), cargarPaleta(`assets/texturas/${p.paleta}`)]);
+      const [gltf, paleta] = await Promise.all([cargarModelo(`assets/modelos/${p.archivo}`), p.paleta ? cargarPaleta(`assets/texturas/${p.paleta}`) : null]);
       const modelo = gltf.scene;
       // de todo lo que trae en las manos, solo se deja su arma
       // (GLTFLoader quita los puntos de los nombres: "handslot.r" → "handslotr")
@@ -45,7 +47,7 @@ export function cargarPersonaje(id) {
         modelo.getObjectByName('handslotr')?.add(arma);
       }
       modelo.userData.armas = [...p.armas, ...(p.extra ? ['arma_extra'] : [])];
-      aplicarPaleta(modelo, paleta);
+      if (paleta) aplicarPaleta(modelo, paleta);
       ajustarAltura(modelo, 1.8);
       const mano = modelo.getObjectByName('handslotr');
       if (mano && varitaBase) {

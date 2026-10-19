@@ -26,7 +26,7 @@ test('cada personaje tiene un ataque distinto y completo', () => {
   const tipos = new Set(PERSONAJES.map((p) => p.ataque.tipo));
   assert.equal(tipos.size, PERSONAJES.length);
   for (const p of PERSONAJES) {
-    assert.ok(p.armas.length, p.id);
+    assert.ok(p.armas.length || p.natural, p.id); // el monstruo no lleva armas: ataca con la cabeza
     for (const k of ['anim', 'alcance', 'enfriamiento', 'nombre']) assert.ok(p.ataque[k] !== undefined, `${p.id}.${k}`);
   }
   assert.ok(ataqueDe('picaro').alcance > 10, 'la ballesta llega lejos');

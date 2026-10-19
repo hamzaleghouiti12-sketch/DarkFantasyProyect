@@ -218,6 +218,9 @@ export function crearSalaDeTorre({ escena, origen, piezas, fx, estandartes = {},
 
   const tmp = new THREE.Vector3();
   let polvo = 0;
+  // la sala responde a cada pregunta: antorchas doradas al acertar, frías y bajas al fallar
+  const pulso = { t: 0, ok: true, fuerza: 1 };
+  const LLAMA = new THREE.Color(0xff8a3d), ORO = new THREE.Color(0xfff0b0), FRIO = new THREE.Color(0x5a6cff);
 
   const sala = {
     grupo, colliders, origen, W, L, H, poner, obstaculo,
@@ -230,12 +233,26 @@ export function crearSalaDeTorre({ escena, origen, piezas, fx, estandartes = {},
       fx.big.emit(runas[i].pos, { count: 50, color: 0xb06bff, intensity: 2.2, speed: 3, life: 1.1, gravity: -1 });
     },
     abrirPuerta() { puerta.abriendo = true; },
+    reaccionar(ok, racha = 1) {
+      pulso.t = 1;
+      pulso.ok = ok;
+      pulso.fuerza = ok ? Math.min(2, 1 + racha * 0.15) : 1;
+      for (const a of antorchas) {
+        fx.big.emit(a.pos, ok
+          ? { count: 10 + racha * 2, color: 0xffd27a, intensity: 2.4, speed: 2.2, up: 1.5, life: 0.9, gravity: -2 }
+          : { count: 6, color: 0x6a7cff, intensity: 1.2, speed: 0.6, up: -0.4, life: 0.9 });
+      }
+    },
 
     update(dt, t) {
+      if (pulso.t > 0) pulso.t = Math.max(0, pulso.t - dt * 0.9);
+      const k = pulso.t * pulso.t;
+      const mult = pulso.ok ? 1 + 1.4 * k * pulso.fuerza : 1 - 0.65 * k;
       for (const a of antorchas) {
         const f = 0.82 + 0.12 * Math.sin(t * 13 + a.semilla) + 0.08 * Math.sin(t * 29 + a.semilla * 3);
-        a.luz.intensity = 42 * f;
-        a.llama.scale.set(1, 0.85 + f * 0.3, 1);
+        a.luz.intensity = 42 * f * mult;
+        a.luz.color.copy(LLAMA).lerp(pulso.ok ? ORO : FRIO, k);
+        a.llama.scale.set(1, (0.85 + f * 0.3) * (pulso.ok ? 1 + 0.8 * k : 1 - 0.5 * k), 1);
         a.t -= dt;
         if (a.t <= 0) {
           a.t = 0.07 + Math.random() * 0.08;
@@ -261,6 +278,7 @@ export function crearSalaDeTorre({ escena, origen, piezas, fx, estandartes = {},
   // ---------- Contrato de zona (ver PLAN_TECNICO.md, sección 2.3) ----------
   sala.zona = {
     grupo, colliders,
+    alResponder: (ok, racha) => sala.reaccionar(ok, racha),
     pisada: 'piedra', camDist: 6.5,
     niebla: { color: 0x07060b, densidad: 0.028 }, luz: { luna: 1.3, cielo: 1.1 },
     entrada: { pos: new THREE.Vector3(ox, 0, oz + 14), mirada: Math.PI, yaw: 0 },

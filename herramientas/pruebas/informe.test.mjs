@@ -26,3 +26,17 @@ test('el informe lista pisos y todos los criterios, y escapa el nombre', () => {
   for (const k of Object.keys(CRITERIOS)) assert.ok(html.includes(`<b>${k}</b>`), k);
   assert.ok(html.includes('Bien')); // 3.1 con 4 de 5
 });
+
+test('con datos de la sesión, enseña racha, estrellas, chispas y comodines', () => {
+  const html = informeHTML({
+    alumno: 'Ana', fecha: 'hoy',
+    pisos: [{ id: 'piso1', nombre: 'Piso I' }],
+    progreso: { pisos: {}, criterios: {} },
+    sesion: { mejorRacha: 7, chispas: 2, comodines: 1, estrellas: { piso1: 3, piso2: 2 } },
+  });
+  assert.ok(html.includes('Esta sesión'));
+  assert.ok(html.includes('<b>7</b>mejor racha'));
+  assert.ok(html.includes('<b>5 / 6</b>estrellas en 2 pisos'));
+  assert.ok(html.includes('<b>1</b>comodines usados'));
+  assert.ok(!informeHTML({ alumno: 'A', fecha: 'f', pisos: [], progreso: { pisos: {}, criterios: {} } }).includes('Esta sesión'));
+});

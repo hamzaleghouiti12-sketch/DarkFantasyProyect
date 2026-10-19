@@ -19,6 +19,11 @@ export const ARMAS = {
     armas: ['1H_Sword', 'Round_Shield'],
     ataque: { tipo: 'tajo', nombre: 'Tajo de espada', anim: '1H_Melee_Attack_Slice_Horizontal', alcance: 2.9, arco: 120, enfriamiento: 0.8, retardo: 0.25 },
   },
+  monstruo: {
+    desc: 'Sin armas: un cabezazo con mordisco de su cabezota. Corto, pero rápido.',
+    armas: [], natural: true, // su arma es él mismo
+    ataque: { tipo: 'cabezazo', nombre: 'Cabezazo mordedor', anim: 'Unarmed_Melee_Attack_Punch_A', alcance: 2.1, arco: 90, enfriamiento: 0.65, retardo: 0.3 },
+  },
   barbaro: {
     desc: 'Hacha a dos manos: un giro que golpea todo alrededor.',
     armas: ['2H_Axe'],

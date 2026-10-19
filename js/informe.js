@@ -34,7 +34,8 @@ export function nivel(a, f) {
 }
 
 // pisos: [{ id, nombre }] en orden; progreso: { pisos: {id: {completado, mejorPrecision, segundos}}, criterios: {k: {a, f}} }
-export function informeHTML({ alumno, fecha, pisos, progreso }) {
+// sesion (opcional): lo de la partida actual → { mejorRacha, chispas, comodines, estrellas: { piso: n } }
+export function informeHTML({ alumno, fecha, pisos, progreso, sesion = null }) {
   const filasPisos = pisos.map(({ id, nombre }) => {
     const p = progreso.pisos[id];
     return `<tr><td>${esc(nombre)}</td><td>${p?.completado ? '✔ Superado' : '—'}</td><td>${p ? `${p.mejorPrecision}%` : ''}</td><td>${p?.segundos ? tiempo(p.segundos) : ''}</td></tr>`;
@@ -46,6 +47,10 @@ export function informeHTML({ alumno, fecha, pisos, progreso }) {
     return `<tr class="${n ? '' : 'vacio'}"><td><b>${k}</b></td><td>${esc(texto)}</td><td>${c.a}</td><td>${c.f}</td><td>${pct === null ? '' : `${pct}%`}<div class="barra"><i style="width:${pct ?? 0}%"></i></div></td><td>${nivel(c.a, c.f)}</td></tr>`;
   }).join('');
   const superados = pisos.filter(({ id }) => progreso.pisos[id]?.completado).length;
+  const est = sesion ? Object.values(sesion.estrellas ?? {}) : [];
+  const bloqueSesion = sesion ? `<h2>Esta sesión</h2>
+<div class="resumen"><div><b>${sesion.mejorRacha ?? 0}</b>mejor racha de aciertos</div>${est.length ? `<div><b>${est.reduce((s, n) => s + n, 0)} / ${est.length * 3}</b>estrellas en ${est.length} piso${est.length === 1 ? '' : 's'}</div>` : ''}<div><b>${sesion.chispas ?? 0}</b>preguntas relámpago acertadas</div><div><b>${sesion.comodines ?? 0}</b>comodines usados</div></div>
+<p class="nota">El <b>comodín de Aldric</b> tacha opciones falsas o da una pista: las preguntas respondidas con comodín cuentan como las demás, así que conviene tenerlo en cuenta al leer los porcentajes.</p>` : '';
   const totA = Object.values(progreso.criterios).reduce((s, c) => s + c.a, 0);
   const totF = Object.values(progreso.criterios).reduce((s, c) => s + c.f, 0);
   return `<!doctype html>
@@ -66,11 +71,12 @@ export function informeHTML({ alumno, fecha, pisos, progreso }) {
 <h1>Informe de progreso · La Torre de Morvath</h1>
 <div class="meta">Informática y Digitalización · Alumno/a: <b>${esc(alumno)}</b> · ${esc(fecha)}</div>
 <div class="resumen"><div><b>${superados} / ${pisos.length}</b>pisos superados</div><div><b>${totA}</b>aciertos</div><div><b>${totF}</b>fallos</div><div><b>${totA + totF ? Math.round((totA / (totA + totF)) * 100) : 0}%</b>precisión global</div></div>
+${bloqueSesion}
 <h2>Pisos</h2>
 <table><tr><th>Piso</th><th>Estado</th><th>Mejor precisión</th><th>Tiempo</th></tr>${filasPisos}</table>
 <h2>Criterios de evaluación</h2>
 <table><tr><th>Criterio</th><th>Qué se demuestra</th><th>Aciertos</th><th>Fallos</th><th>%</th><th>Nivel orientativo</th></tr>${filasCriterios}</table>
-<p class="nota">Datos guardados en el navegador donde se jugó. Cuentan las preguntas de la varita, los sellos y los repasos. El nivel es orientativo: con menos de 3 respuestas en un criterio no se valora. Los pisos I a VIII trabajan los criterios 1.1 a 3.1 y 3.3; el resto (3.2 y del 4.1 al 4.5) queda para pisos que aún no existen.</p>
+<p class="nota">Datos guardados en el navegador donde se jugó. Cuentan las preguntas de la varita, los sellos, los repasos y las preguntas relámpago. El nivel es orientativo: con menos de 3 respuestas en un criterio no se valora. Entre los trece pisos y la cima se trabajan todos los criterios, del 1.1 al 4.5.</p>
 </body></html>`;
 }
 

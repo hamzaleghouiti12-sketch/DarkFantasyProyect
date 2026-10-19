@@ -1,6 +1,7 @@
-// Ataques con el arma de cada personaje (tecla R). Cuatro tipos:
+// Ataques con el arma de cada personaje (tecla R). Cinco tipos:
 //   tajo (espada, arco por delante) · giro (hacha, todo alrededor) ·
-//   disparo (ballesta, virote que vuela en línea recta) · puñalada (dagas, doble y rápida).
+//   disparo (ballesta, virote que vuela en línea recta) · puñalada (dagas, doble y rápida) ·
+//   cabezazo (el monstruo: un mordisco corto delante, con chispas naranjas).
 // Los golpes solo tienen efecto sobre las «dianas» de la zona (las criaturas del
 // Piso VIII: las aturden). En el resto de pisos son un gesto visual y sonoro.
 import * as THREE from 'three';
@@ -40,6 +41,10 @@ export function crearAtaques({ escena, fx, sonido }) {
         break;
       case 'punalada':
         fx.small.emit(frente(1.1), { count: 14, color: 0xc8ffd8, intensity: 2.2, speed: 1.5, life: 0.3 });
+        break;
+      case 'cabezazo':
+        fx.big.emit(frente(1.2), { count: 22, color: 0xffa040, intensity: 2.2, speed: 2.2, life: 0.4, gravity: -2 });
+        fx.small.emit(frente(1.0), { count: 16, color: 0xfff0d0, intensity: 2, speed: 1, life: 0.3 });
         break;
       case 'disparo': {
         const m = new THREE.Mesh(virGeo, virMat);
