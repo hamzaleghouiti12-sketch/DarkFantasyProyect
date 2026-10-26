@@ -131,9 +131,27 @@ export class Red {
     this.alCaer('anfitrion');
   }
 
+  // PeerJS va dentro del juego (js/vendor, MIT): así no depende de que otra web
+  // (jsDelivr) responda o de que un cortafuegos o antivirus la deje pasar.
+  // Si aun así fallara, se prueba la copia de jsDelivr como reserva.
   async cargarPeer() {
-    const { Peer } = await import('https://cdn.jsdelivr.net/npm/peerjs@1.5.5/+esm');
-    return Peer;
+    if (window.Peer) return window.Peer;
+    const cargar = (src) => new Promise((ok, mal) => {
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload = () => (window.Peer ? ok(window.Peer) : mal(new Error('sin Peer')));
+      s.onerror = () => { s.remove(); mal(new Error(`no se pudo cargar ${src}`)); };
+      document.head.appendChild(s);
+    });
+    try {
+      return await cargar(new URL('./vendor/peerjs.min.js', import.meta.url).href);
+    } catch {
+      try {
+        return await cargar('https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js');
+      } catch {
+        throw new Error('No se pudo cargar el módulo de conexión. Recarga la página (Ctrl + F5) y vuelve a intentarlo.');
+      }
+    }
   }
 
   get miColor() { return this.jugadores.find((j) => j.id === this.miId)?.color ?? 0; }

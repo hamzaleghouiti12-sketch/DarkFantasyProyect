@@ -8,8 +8,9 @@
 //   TURN_KEY_ID          identificador de la clave TURN (panel de Cloudflare → Realtime → TURN)
 //   TURN_KEY_API_TOKEN   token de esa clave
 
-// Solo el juego puede pedir credenciales (en local y en GitHub Pages).
+// Solo el juego puede pedir credenciales (en local, en Vercel, donde está publicado, y en GitHub Pages).
 const ORIGENES = [
+  'https://dark-fantasy-proyect.vercel.app',
   'http://localhost:8750',
   'http://127.0.0.1:8750',
   'https://hamzaleghouiti12-sketch.github.io',
