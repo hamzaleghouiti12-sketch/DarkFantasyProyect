@@ -642,6 +642,38 @@ export class UI {
     });
   }
 
+  // Presentación visual del juego: diapositivas con imagen + texto (portada).
+  presentacion(slides) {
+    return new Promise((resolve) => {
+      const root = $('screen-presentacion');
+      const img = root.querySelector('.pres-img');
+      const txt = root.querySelector('.pres-text');
+      const dots = root.querySelector('.pres-dots');
+      const ant = root.querySelector('.pres-ant');
+      const sig = root.querySelector('.pres-sig');
+      const salir = root.querySelector('.pres-salir');
+      root.classList.remove('hidden');
+      dots.innerHTML = slides.map(() => '<span></span>').join('');
+      let i = 0;
+      const finish = () => { root.classList.add('hidden'); resolve(); };
+      const show = () => {
+        img.classList.remove('fade-in'); txt.classList.remove('fade-in');
+        void img.offsetWidth;
+        img.classList.add('fade-in'); txt.classList.add('fade-in');
+        img.src = slides[i].img;
+        img.alt = slides[i].texto.replace(/\*\*/g, '');
+        txt.innerHTML = rich(slides[i].texto);
+        [...dots.children].forEach((d, j) => d.classList.toggle('activo', j === i));
+        ant.disabled = i === 0;
+        sig.textContent = i === slides.length - 1 ? 'Terminar ▶' : 'Siguiente ▶';
+      };
+      ant.onclick = () => { if (i > 0) { i--; show(); } };
+      sig.onclick = () => { if (i < slides.length - 1) { i++; show(); } else finish(); };
+      salir.onclick = finish;
+      show();
+    });
+  }
+
   hideScreen(id) { $(id).classList.add('hidden'); }
 
   // fundido a negro para los cambios de zona

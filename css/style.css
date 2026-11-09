@@ -197,6 +197,21 @@ h1 {
 .fade-in { animation: fadeIn 0.7s ease; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } }
 
+.pres-card {
+  width: min(760px, 100%); padding: 24px 28px 28px; border-radius: 14px;
+  background: rgba(10, 8, 14, 0.88); border: 1px solid var(--gold-dim); backdrop-filter: blur(8px);
+}
+.pres-img {
+  display: block; width: 100%; max-height: 58vh; object-fit: contain; border-radius: 10px;
+  border: 1px solid var(--gold-dim); background: #0a080e; margin-bottom: 18px;
+}
+.pres-text { font-size: 19px; line-height: 1.5; margin: 0 0 16px; min-height: 60px; }
+.pres-dots { display: flex; gap: 6px; justify-content: center; margin-bottom: 16px; flex-wrap: wrap; }
+.pres-dots span { width: 8px; height: 8px; border-radius: 50%; background: rgba(255, 255, 255, 0.18); }
+.pres-dots span.activo { background: var(--gold); }
+.pres-actions { display: flex; justify-content: space-between; gap: 14px; }
+.pres-actions .btn:disabled { visibility: hidden; }
+
 .end-title { font-size: clamp(38px, 7vw, 72px); }
 .end-stats { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
 .end-stat { display: flex; flex-direction: column; min-width: 96px; padding: 12px 10px; border: 1px solid var(--gold-dim); border-radius: 10px; background: var(--panel); }

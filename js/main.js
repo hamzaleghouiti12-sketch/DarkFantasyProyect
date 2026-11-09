@@ -12,8 +12,8 @@ import { Hologram } from './hologram.js';
 import { SpellSystem, SPELLS } from './spells.js';
 import { UI, estrellasDe } from './ui.js';
 import { Sonido } from './audio.js';
-import { PROLOGO, CASA, EXTERIOR, PISO1, PREGUNTAS } from './content.js';
-import { RUTAS, cargarModelo, cargarPaleta } from './modelos.js';
+import { PROLOGO, PRESENTACION, CASA, EXTERIOR, PISO1, PREGUNTAS } from './content.js';
+import { RUTAS, cargarModelo, cargarPaleta, cargarAldric } from './modelos.js';
 import { cargarMazmorra, vestirMazmorra } from './mazmorra.js';
 import { Red, MAX_JUGADORES } from './red.js';
 import { Companero, TINTES, crearEtiqueta, claveCompanero } from './companeros.js';
@@ -240,7 +240,7 @@ await intentar('las paletas', async () => {
 });
 await Promise.all([
   intentar('los personajes', async () => {
-    const [varita, mago] = await Promise.all([cargarModelo(RUTAS.varita), cargarModelo(RUTAS.aldric)]);
+    const [varita, { gltf: mago }] = await Promise.all([cargarModelo(RUTAS.varita), cargarAldric()]);
     configurarVarita(varita, paletas.mago, player.tipMat);
     const pl = await cargarPersonaje(miPerfil.personaje);
     player.usarModelo(instanciar(pl), pl.clips);
@@ -1443,6 +1443,15 @@ async function startStory() {
   ui.toast(CASA.inicio, 'info', 6500);
 }
 document.getElementById('btn-solo').onclick = startStory;
+
+// Presentación del juego: diapositivas desde la portada, sin empezar partida.
+async function mostrarPresentacion() {
+  sonido.clic();
+  ui.hideScreen('screen-title');
+  await ui.presentacion(PRESENTACION);
+  ui.showScreen('screen-title');
+}
+document.getElementById('btn-presentacion').onclick = mostrarPresentacion;
 
 // Progreso guardado (versión 2): pisos completados y aciertos por criterio.
 // Nunca sale del navegador. Se migra el formato antiguo, que solo tenía el Piso I.
