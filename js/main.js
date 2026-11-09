@@ -1451,7 +1451,8 @@ async function mostrarPresentacion() {
   await ui.presentacion(PRESENTACION);
   ui.showScreen('screen-title');
 }
-document.getElementById('btn-presentacion').onclick = mostrarPresentacion;
+const btnPresentacion = document.getElementById('btn-presentacion');
+if (btnPresentacion) btnPresentacion.onclick = mostrarPresentacion;
 
 // Progreso guardado (versión 2): pisos completados y aciertos por criterio.
 // Nunca sale del navegador. Se migra el formato antiguo, que solo tenía el Piso I.
