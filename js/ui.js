@@ -646,30 +646,45 @@ export class UI {
   presentacion(slides) {
     return new Promise((resolve) => {
       const root = $('screen-presentacion');
+      const kicker = root.querySelector('.pres-kicker');
       const img = root.querySelector('.pres-img');
       const txt = root.querySelector('.pres-text');
       const dots = root.querySelector('.pres-dots');
+      const count = root.querySelector('.pres-count');
       const ant = root.querySelector('.pres-ant');
       const sig = root.querySelector('.pres-sig');
       const salir = root.querySelector('.pres-salir');
       root.classList.remove('hidden');
       dots.innerHTML = slides.map(() => '<span></span>').join('');
       let i = 0;
-      const finish = () => { root.classList.add('hidden'); resolve(); };
+      const finish = () => {
+        root.classList.add('hidden');
+        this.keyTarget = null;
+        resolve();
+      };
       const show = () => {
-        img.classList.remove('fade-in'); txt.classList.remove('fade-in');
+        kicker.classList.remove('fade-in'); img.classList.remove('fade-in'); txt.classList.remove('fade-in');
         void img.offsetWidth;
-        img.classList.add('fade-in'); txt.classList.add('fade-in');
+        kicker.classList.add('fade-in'); img.classList.add('fade-in'); txt.classList.add('fade-in');
+        kicker.textContent = slides[i].kicker ?? '';
         img.src = slides[i].img;
         img.alt = slides[i].texto.replace(/\*\*/g, '');
         txt.innerHTML = rich(slides[i].texto);
         [...dots.children].forEach((d, j) => d.classList.toggle('activo', j === i));
+        count.textContent = `${i + 1} / ${slides.length}`;
         ant.disabled = i === 0;
         sig.textContent = i === slides.length - 1 ? 'Terminar ▶' : 'Siguiente ▶';
       };
-      ant.onclick = () => { if (i > 0) { i--; show(); } };
-      sig.onclick = () => { if (i < slides.length - 1) { i++; show(); } else finish(); };
+      const anterior = () => { if (i > 0) { i--; show(); } };
+      const siguiente = () => { if (i < slides.length - 1) { i++; show(); } else finish(); };
+      ant.onclick = anterior;
+      sig.onclick = siguiente;
       salir.onclick = finish;
+      this.keyTarget = (e) => {
+        if (e.code === 'ArrowLeft') anterior();
+        else if (e.code === 'ArrowRight' || ADVANCE.includes(e.code)) siguiente();
+        else if (e.code === 'Escape') finish();
+      };
       show();
     });
   }

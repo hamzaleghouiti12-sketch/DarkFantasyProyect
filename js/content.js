@@ -19,17 +19,14 @@ export const PROLOGO = {
 // "Presentación del juego"), fuera de la partida. Usan el mismo motor que
 // PROLOGO (ui.story), así que admiten **negrita**.
 export const PRESENTACION = [
-  { img: 'assets/presentacion/portada.jpg', texto: '**La Torre de Morvath** es un juego educativo en 3D para el navegador, hecho para repasar el temario de **Informática y Digitalización** (2.º de Bachillerato).' },
-  { img: 'assets/presentacion/intro.jpg', texto: 'Unos alumnos caen en **Umbravel**, un reino de fantasía oscura. El mago Aldric, que los acogió, ha sido secuestrado por su antiguo aprendiz, **Morvath**, y encerrado en lo alto de su torre. Para rescatarlo hay que subir la torre, piso a piso.' },
-  { img: 'assets/presentacion/piso1.jpg', texto: '**Piso I · La Cámara de los Sellos.** El holograma de Aldric enseña cada concepto y luego pide usarlo: contraseñas, verificación en dos pasos y phishing.' },
-  { img: 'assets/presentacion/piso2.jpg', texto: '**Piso II · La Bóveda de la Memoria.** Almacenamiento: elegir el soporte adecuado, convertir unidades y repartir copias de seguridad con la regla 3-2-1.' },
-  { img: 'assets/presentacion/piso3.jpg', texto: '**Piso III · El Scriptorium Binario.** Binario, ASCII/Unicode y el peso de imágenes y audio, con un guardián que pone a prueba lo aprendido.' },
-  { img: 'assets/presentacion/piso4.jpg', texto: '**Piso IV · Los Puentes Flotantes.** Un archipiélago donde se tienden redes de verdad: topologías, direcciones IP y una terminal con ping y tracert.' },
-  { img: 'assets/presentacion/piso5.jpg', texto: '**Piso V · El Taller de los Heraldos.** Un editor de HTML y CSS dentro del propio juego, con vista previa en vivo y revisión de accesibilidad.' },
-  { img: 'assets/presentacion/piso6.jpg', texto: '**Piso VI · La Forja de las Formas.** Modelado 3D de verdad: primitivas, operaciones booleanas y exportación a STL para forjar la llave.' },
-  { img: 'assets/presentacion/piso8.jpg', texto: '**Piso VII · La Gran Biblioteca** y **Piso VIII · Las Criptas del Contagio**: licencias y bulos, y el primer piso con enemigos, un bestiario de malware (virus, gusano, troyano, ransomware…) que hay que identificar y desterrar.' },
-  { img: 'assets/presentacion/pisos-avanzados.jpg', texto: 'La torre sigue subiendo hasta el **Piso XIII**: protección de datos, amenazas digitales, programación por bloques y orientada a objetos, bases de datos e IA… hasta la **Cima**, con el duelo final contra Morvath.' },
-  { img: 'assets/presentacion/equipo.jpg', texto: 'Se puede jugar **solo** o **en equipo**, de 2 a 5 jugadores conectados desde sus propios ordenadores, cada uno con su personaje y con chat.' },
+  { kicker: 'Informática y Digitalización · 2.º de Bachillerato', img: 'assets/presentacion/portada.jpg', texto: '**La Torre de Morvath** es un juego educativo en 3D para el navegador, hecho para repasar el temario entero jugando.' },
+  { kicker: 'La historia', img: 'assets/presentacion/intro.jpg', texto: 'Unos alumnos caen en **Umbravel**, un reino de fantasía oscura. El mago Aldric, que los acogió, ha sido secuestrado por su antiguo aprendiz, **Morvath**, y encerrado en lo alto de su torre. Para rescatarlo hay que subirla, piso a piso.' },
+  { kicker: 'Cómo se juega', img: 'assets/presentacion/piso1.jpg', texto: 'Cada piso es un tema del currículo convertido en un lugar: el holograma de Aldric **enseña** el concepto y luego pide usarlo en **tres sellos**. Al romperlos los tres, se abre la puerta.' },
+  { kicker: 'Gameplay · recorrido', img: 'assets/presentacion/recorrido.gif', texto: 'Así es la torre por dentro: almacenamiento, binario, redes, HTML y CSS en vivo, modelado 3D y, desde el Piso VIII, los primeros enemigos: un bestiario de malware.' },
+  { kicker: 'Gameplay · la varita', img: 'assets/presentacion/quiz.gif', texto: 'La **varita** repasa con preguntas de todo lo aprendido hasta ese momento: repaso espaciado de verdad, no un examen al final.' },
+  { kicker: 'Hasta la cima', img: 'assets/presentacion/pisos-avanzados.jpg', texto: 'La torre sigue subiendo hasta el **Piso XIII**: protección de datos, amenazas digitales, programación por bloques y orientada a objetos, bases de datos e IA… hasta la **Cima**, con el duelo final contra Morvath.' },
+  { kicker: 'Modo equipo', img: 'assets/presentacion/equipo.jpg', texto: 'Se puede jugar **solo** o **en equipo**, de 2 a 5 jugadores conectados desde sus propios ordenadores, cada uno con su personaje y con chat.' },
+  { kicker: 'Listo para jugar', img: 'assets/presentacion/portada.jpg', texto: '13 pisos, un currículo entero y una torre esperando. **¿Rescatamos a Aldric?**' },
 ];
 
 // Cinemática de inicio (js/cinematica.js): los cuatro amigos, el portal y Aldric.

@@ -201,14 +201,20 @@ h1 {
   width: min(760px, 100%); padding: 24px 28px 28px; border-radius: 14px;
   background: rgba(10, 8, 14, 0.88); border: 1px solid var(--gold-dim); backdrop-filter: blur(8px);
 }
+.pres-kicker {
+  font-family: Cinzel, serif; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--violet); margin-bottom: 10px; min-height: 14px;
+}
 .pres-img {
   display: block; width: 100%; max-height: 58vh; object-fit: contain; border-radius: 10px;
   border: 1px solid var(--gold-dim); background: #0a080e; margin-bottom: 18px;
 }
 .pres-text { font-size: 19px; line-height: 1.5; margin: 0 0 16px; min-height: 60px; }
-.pres-dots { display: flex; gap: 6px; justify-content: center; margin-bottom: 16px; flex-wrap: wrap; }
+.pres-footer { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 16px; }
+.pres-dots { display: flex; gap: 6px; flex-wrap: wrap; }
 .pres-dots span { width: 8px; height: 8px; border-radius: 50%; background: rgba(255, 255, 255, 0.18); }
 .pres-dots span.activo { background: var(--gold); }
+.pres-count { font: 500 13px 'Alegreya Sans', sans-serif; color: var(--ink-dim); }
 .pres-actions { display: flex; justify-content: space-between; gap: 14px; }
 .pres-actions .btn:disabled { visibility: hidden; }
 
